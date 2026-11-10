@@ -1,0 +1,21 @@
+# This repository's qits configuration — the single source of truth for its actions and bootstrap
+# chain. It is read in-container per workspace from your branch's checkout, so changing it is an
+# ordinary commit and takes effect in every workspace whose branch carries it.
+#
+# A blank component has nothing to run yet. Uncomment and fill in the sections below as it grows.
+version: 1
+
+repository:
+  main-branch: main
+  # What kind of component this is; qits reads it from here, never from the name.
+  # archetype: SERVICE   # or DAEMON, LIBRARY, FRONTEND, APP, CLI, IMAGE
+
+# One-shot commands runnable from the workspace — builds, test suites, linters.
+# actions:
+#   - name: build
+#     execute: ./build.sh
+
+# Commands run once when a workspace container is first provisioned, in order.
+# bootstrap:
+#   - name: install dependencies
+#     execute: ./install.sh
