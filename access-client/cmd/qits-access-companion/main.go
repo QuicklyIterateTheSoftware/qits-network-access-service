@@ -1,8 +1,10 @@
 // Command qits-access-companion is a person's way onto the platform's private edge without a TUN,
-// NET_ADMIN or host DNS changes (epic qits-1977, the design's section 6). It runs in a container —
-// `qits network-access up` starts it as
+// NET_ADMIN or host DNS changes (epic qits-1977, the design's section 6). It rides inside the
+// qits-network-access image at /work/companion/qits-access-companion, and `qits network-access up`
+// starts it from there with what GET /companion answers:
 //
 //	docker run -d --name qits-network-access-companion --restart unless-stopped \
+//	  --user 65532:65532 --entrypoint /work/companion/qits-access-companion \
 //	  -p 127.0.0.1:47813:47813 -v qits-network-access-companion:/state <image>:<version> run
 //
 // — and holds a userspace WireGuard tunnel (wireguard-go on gVisor's netstack) to the private

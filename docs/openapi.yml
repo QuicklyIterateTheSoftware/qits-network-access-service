@@ -11,6 +11,10 @@ components:
           type: string
         version:
           type: string
+        entrypoint:
+          type: string
+        user:
+          type: string
     CreatePeerRequest:
       type: object
       properties:
@@ -139,11 +143,11 @@ components:
 paths:
   /network-access/api/companion:
     get:
-      summary: The companion image and version to run
+      summary: "How to run the companion: image, version, entrypoint, user"
       operationId: getCompanion
       responses:
         "200":
-          description: The image and its version
+          description: "The image, its version, entrypoint and user"
           content:
             application/json:
               schema:

@@ -20,16 +20,15 @@
 # /work/node-tunnel/qits-node-tunnel, which GET /nodes/qits-node-tunnel serves to a node's install
 # line.
 #
-# THE COMPANION is a second image from this file: the same `access-client` stage builds
-# qits-access-companion, and the `companion` target (FROM scratch, uid 65532) holds it alone. It is
-# released as qits/qits-network-access-companion at the service's own version, which GET /companion
-# answers. Build it with
+# THE COMPANION rides in this same image: the `access-client` stage builds qits-access-companion
+# too, and the runtime stage carries it at /work/companion/qits-access-companion with an empty
+# /state (uid 65532, 0700). The release platform deploys one image per application, named for it,
+# so the companion is not a second image. The CLI runs it as
 #
-#     docker build --target companion -t qits/qits-network-access-companion:latest -f docker/Dockerfile .
+#     docker run --user 65532:65532 --entrypoint /work/companion/qits-access-companion \
+#       -v qits-network-access-companion:/state <this image>:<version> run
 #
-# The runtime stage stays LAST on purpose: an untargeted build — the java-service QA step's — is the
-# service image, and still runs the access-client stage (vet, tests, both binaries, the companion's
-# SBOM) because the service image copies the node helper out of it.
+# which GET /companion answers (image, version, entrypoint, user).
 
 ARG QITS_DOMAIN=wohlben.eu
 
@@ -84,40 +83,13 @@ COPY access-client/ ./
 RUN go vet ./... \
  && go test ./... \
  && go build -trimpath -ldflags '-s -w' -o /out/qits-node-tunnel ./cmd/qits-node-tunnel \
- && go build -trimpath -ldflags '-s -w' -o /out/qits-access-companion ./cmd/qits-access-companion \
- && install -d -m 0700 /out/state
-# The companion's CycloneDX document, out of the binary's own build info (`go version -m`), the Go
-# standard library included. Here rather than in a stage of its own so the QA build — which builds
-# this stage for the service image — proves the tool resolves before a release depends on it. The
-# tool is pinned by version and checked against sum.golang.org like any module download.
-RUN go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.9.0 \
- && cyclonedx-gomod bin -json -std -noserial -output-version 1.6 \
-      -output /out/sbom-companion.json /out/qits-access-companion
+ && go build -trimpath -ldflags '-s -w' -o /out/qits-access-companion ./cmd/qits-access-companion
 
 # --- sbom -----------------------------------------------------------------------------------------
 # Lifted out by the release step with `--opt target=sbom --output type=local`, with the same args and
 # secrets as the image build, so every layer above is a cache hit.
 FROM scratch AS sbom
 COPY --from=build /src/service/target/sbom.json /sbom.json
-
-# --- companion-sbom -------------------------------------------------------------------------------
-# The companion's document, lifted the same way with `--opt target=companion-sbom`.
-FROM scratch AS companion-sbom
-COPY --from=access-client /out/sbom-companion.json /sbom-companion.json
-
-# --- companion ------------------------------------------------------------------------------------
-# qits/qits-network-access-companion: the static binary and nothing else. No CA certificates — it
-# terminates no TLS (a CONNECT tunnel carries the client's TLS end to end) and speaks to the edge in
-# WireGuard over UDP. No shell, no passwd: the uid is numeric. /state is created here, owned by
-# that uid and 0700, so the named volume docker creates on first mount inherits both and the
-# unprivileged process can write its key into it.
-FROM scratch AS companion
-COPY --from=access-client --chown=65532:65532 /out/state /state
-COPY --from=access-client /out/qits-access-companion /qits-access-companion
-USER 65532:65532
-EXPOSE 47813
-ENTRYPOINT ["/qits-access-companion"]
-CMD ["run"]
 
 # --- runtime --------------------------------------------------------------------------------------
 FROM mirror.qits.${QITS_DOMAIN}/redhat/ubi9/ubi-minimal:9.6
@@ -135,6 +107,14 @@ RUN chmod +x /work/qits-network-access
 # The node helper GET /nodes/qits-node-tunnel serves (qits.network-access.node-tunnel.path). The
 # path moves together with that property.
 COPY --from=access-client --chown=1001:root /out/qits-node-tunnel /work/node-tunnel/qits-node-tunnel
+
+# The companion, which the CLI runs from this image with its own entrypoint and user (GET
+# /companion; qits.network-access.companion.* in application.properties — the two move together).
+# /state is created here, empty, owned by that uid and 0700, so the named volume docker creates on
+# first mount inherits both and the unprivileged companion can write its key there. The service
+# itself runs as 1001 and never touches /state.
+COPY --from=access-client --chown=1001:root /out/qits-access-companion /work/companion/qits-access-companion
+RUN mkdir -m 0700 /state && chown 65532:65532 /state
 
 # Nothing to own: every durable fact is a row in the database.
 EXPOSE 8080

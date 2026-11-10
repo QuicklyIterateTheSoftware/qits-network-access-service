@@ -295,8 +295,10 @@ class PeersApiTest {
         .get("/network-access/api/companion")
         .then()
         .statusCode(200)
-        .body("image", equalTo("registry.qits.wohlben.eu/qits/qits-network-access-companion"))
-        .body("version", equalTo("2026.1110.120000"));
+        .body("image", equalTo("registry.qits.wohlben.eu/qits/qits-network-access"))
+        .body("version", equalTo("2026.1110.120000"))
+        .body("entrypoint", equalTo("/work/companion/qits-access-companion"))
+        .body("user", equalTo("65532:65532"));
   }
 
   @Test

@@ -1,4 +1,6 @@
 {
-  "image": "registry.qits.wohlben.eu/qits/qits-network-access-companion",
-  "version": "2026.1110.120000"
+  "image": "registry.qits.wohlben.eu/qits/qits-network-access",
+  "version": "2026.1110.120000",
+  "entrypoint": "/work/companion/qits-access-companion",
+  "user": "65532:65532"
 }

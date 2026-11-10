@@ -133,8 +133,12 @@ public final class NetworkAccessWire {
     }
   }
 
-  /** {@code GET /companion}: the image the CLI pulls, at exactly this service's version. */
-  public record CompanionDto(String image, String version) {}
+  /**
+   * {@code GET /companion}: how the CLI runs the companion — this service's own image, at exactly
+   * this service's version, started with the companion's {@code entrypoint} as {@code user} (the
+   * uid that owns the image's empty {@code /state}).
+   */
+  public record CompanionDto(String image, String version, String entrypoint, String user) {}
 
   /** Every refusal's body. */
   public record ErrorBody(String message) {}

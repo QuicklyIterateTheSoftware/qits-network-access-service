@@ -73,7 +73,7 @@ for a desk or a service, that client's id, which no `UserDeleted` matches (revok
 | `GET /nodes`, `GET /nodes/{targetId}` | joined nodes with their ACTIVE peer | read |
 | `POST /nodes/{targetId}/join` `{name, publicKey}` | 200, the node's tunnel answer (as `/peers/{id}/tunnel`); 403 another target's token; 409 no edge yet, a key another peer holds, or a full pool; 503 qits-system unreachable | write, or `qits:target-runner-registration` (checked) |
 | `GET /nodes/qits-node-tunnel` | `application/octet-stream`, the static helper a node's install line runs | read, or `qits:target-runner-registration` |
-| `GET /companion` | `{image: "registry.qits.<domain>/qits/qits-network-access-companion", version}`, this service's version | read |
+| `GET /companion` | `{image: "registry.qits.<domain>/qits/qits-network-access", version, entrypoint: "/work/companion/qits-access-companion", user: "65532:65532"}`, this service's own image and version | read |
 | `GET /private-edge` | the announced edge, or 404 | read |
 
 - **read**: `qits:admin`, `qits:admin-agent`, `qits:desk-admin`, `qits:desk`, `qits:agent`,
@@ -144,15 +144,18 @@ handshake read), and the companion below builds beside it.
 ## The companion (`access-client/cmd/qits-access-companion`)
 
 A person's way onto the private edge from any machine with Docker: no TUN, no `NET_ADMIN`, no
-`wg-quick`, no host DNS change. The image `qits/qits-network-access-companion` (docker/Dockerfile's
-`companion` target: `FROM scratch`, the static binary alone, uid 65532, no CA certificates — it
-terminates no TLS) is released with this service at the **same version**, which `GET /companion`
-answers. `qits network-access up` runs it:
+`wg-quick`, no host DNS change. It is a static binary that rides **inside this service's own image**
+at `/work/companion/qits-access-companion`, beside the node helper, with an empty `/state` owned by
+uid 65532, mode 0700, so a fresh named volume inherits both. It is not a second image: qits-ci's
+`CiReleaseConsistency` holds every docker artifact of a deployed repository to
+`qits/<application>`. `GET /companion` answers the image, the version, the entrypoint and the user,
+and `qits network-access up` runs it with them (`<run>` below is `docker run --user 65532:65532
+--entrypoint /work/companion/qits-access-companion -v qits-network-access-companion:/state`):
 
-    docker run --rm -v qits-network-access-companion:/state <image>:<version> keygen      # prints the public key
-    docker run --rm -i -v qits-network-access-companion:/state <image>:<version> configure < tunnel.json
-    docker run -d --name qits-network-access-companion --restart unless-stopped \
-      -p 127.0.0.1:47813:47813 -v qits-network-access-companion:/state <image>:<version> run
+    <run> --rm <image>:<version> keygen                       # prints the public key
+    <run> --rm -i <image>:<version> configure < tunnel.json
+    <run> -d --name qits-network-access-companion --restart unless-stopped \
+      -p 127.0.0.1:47813:47813 <image>:<version> run
 
 - **`keygen`** creates `/state/private.key` (0600) if it is absent and prints the base64 **public**
   key; it never prints the private one, and a second call prints the same key. An unreadable key
@@ -182,10 +185,10 @@ refusals, the healthz states, keygen persistence and `configure`'s validation, p
 test with two in-process netstack devices over loopback UDP: a stand-in edge at `100.96.0.1`
 answering DNS and echoing on `:443`, and the companion's own device.
 
-**Released by this repository's own `release:` slot** (`.config/qits/release.yml`): java-service's
-publish step pushes exactly one image, so the slot pushes both — the service (untargeted) and
-`--opt target=companion` — then lifts both SBOMs (`target=sbom`, `target=companion-sbom`, the latter
-written by `cyclonedx-gomod` from the binary's build info). QA is still the archetype's.
+It is built and tested in docker/Dockerfile's `access-client` stage with the node helper, and
+released with the service image by the packaged java-service recipe; there is no release step of its
+own. The entrypoint and user in `application.properties` (`qits.network-access.companion.*`) move
+together with the Dockerfile's runtime stage.
 
 ## Building
 
