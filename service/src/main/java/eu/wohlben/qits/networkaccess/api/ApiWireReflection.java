@@ -1,5 +1,7 @@
 package eu.wohlben.qits.networkaccess.api;
 
+import eu.wohlben.qits.eventstream.control.EventEnvelope;
+import eu.wohlben.qits.eventstream.control.EventFrame;
 import eu.wohlben.qits.networkaccess.events.PeerRegistered;
 import eu.wohlben.qits.networkaccess.events.PeerRevoked;
 import eu.wohlben.qits.networkaccess.bus.PrivateEdgeAnnouncedListener;
@@ -31,6 +33,11 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
       NetworkAccessWire.ErrorBody.class,
       PeerRegistered.class,
       PeerRevoked.class,
+      // qits-eventstream serializes with its own ObjectMapper, so nothing registers its PUT body or
+      // the frames it reads for us: without these the native image publishes nothing, silently
+      // (qits-1977, measured on the private edge, which lacked them).
+      EventEnvelope.class,
+      EventFrame.class,
       // The consumers' private wire DTOs (bus/), which CanonicalJson binds by reflection.
       PrivateEdgeAnnouncedListener.PrivateEdgeAnnouncedPayload.class,
       UserDeletedListener.UserDeletedPayload.class,
@@ -38,6 +45,10 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
       // The qits-system REST client's body and answer.
       SystemTargets.RegistrationQuestion.class,
       SystemTargets.RegistrationAnswer.class
+    },
+    classNames = {
+      "eu.wohlben.qits.eventstream.control.EventPage",
+      "eu.wohlben.qits.eventstream.control.CanonicalJson$QitsEventMixin"
     })
 public final class ApiWireReflection {
 
