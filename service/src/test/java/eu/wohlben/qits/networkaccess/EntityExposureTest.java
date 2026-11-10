@@ -1,0 +1,39 @@
+package eu.wohlben.qits.networkaccess;
+
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+import eu.wohlben.qits.archrules.EntityExposure;
+import eu.wohlben.qits.archrules.EntityExposureRules;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Set;
+
+/**
+ * qits-1945's entity-exposure rules: every {@code @Entity} reaches a JAX-RS operation through a DTO
+ * (na_peer through the peer doors, na_node through the node doors, na_private_edge through {@code
+ * GET /private-edge}). {@code map} keeps the analysis as {@code docs/entities.json}; rerun with
+ * {@code -Dgolden.update=true} to rewrite it.
+ */
+@AnalyzeClasses(
+    packages = "eu.wohlben.qits.networkaccess",
+    importOptions = ImportOption.DoNotIncludeTests.class)
+class EntityExposureTest {
+
+  static final Set<String> KNOWN_GAPS = Set.of();
+
+  @ArchTest
+  static final ArchRule EXPOSED = EntityExposureRules.everyDomainEntityIsExposed(KNOWN_GAPS);
+
+  @ArchTest static final ArchRule GAPS = EntityExposureRules.knownGapsAreReal(KNOWN_GAPS);
+
+  @ArchTest static final ArchRule MARKERS = EntityExposureRules.markersAreWellFormed;
+
+  @ArchTest
+  static void map(JavaClasses classes) throws IOException {
+    EntityExposure.verify(
+        classes, "qits-network-access", KNOWN_GAPS, Path.of("../docs/entities.json"));
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "formatVersion" : 1,
+  "application" : "qits-network-access",
+  "entities" : [
+    {
+      "entity" : "eu.wohlben.qits.networkaccess.entity.NaNode",
+      "table" : "na_node",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
+          "kind" : "factory",
+          "via" : null,
+          "site" : "NodeDto.of(NaNode, NaPeer)"
+        },
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
+          "site" : "NodeDto.peer()"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "createPeer",
+          "method" : "POST",
+          "path" : "/peers",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "getNode",
+          "method" : "GET",
+          "path" : "/nodes/{targetId}",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getNodes",
+          "method" : "GET",
+          "path" : "/nodes",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getPeer",
+          "method" : "GET",
+          "path" : "/peers/{peerId}",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getPeers",
+          "method" : "GET",
+          "path" : "/peers",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "revokePeer",
+          "method" : "POST",
+          "path" : "/peers/{peerId}/revoke",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "returns"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.networkaccess.entity.NaPeer",
+      "table" : "na_peer",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$TunnelDto",
+          "site" : "TunnelDto.edge()"
+        },
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
+          "kind" : "factory",
+          "via" : null,
+          "site" : "NodeDto.of(NaNode, NaPeer)"
+        },
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "factory",
+          "via" : null,
+          "site" : "PeerDto.of(NaPeer)"
+        },
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$TunnelDto",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "PeersResource.tunnel(UUID)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "createPeer",
+          "method" : "POST",
+          "path" : "/peers",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "getNode",
+          "method" : "GET",
+          "path" : "/nodes/{targetId}",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getNodes",
+          "method" : "GET",
+          "path" : "/nodes",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getPeer",
+          "method" : "GET",
+          "path" : "/peers/{peerId}",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getPeerTunnel",
+          "method" : "GET",
+          "path" : "/peers/{peerId}/tunnel",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getPeers",
+          "method" : "GET",
+          "path" : "/peers",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "revokePeer",
+          "method" : "POST",
+          "path" : "/peers/{peerId}/revoke",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "returns"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.networkaccess.entity.NaPrivateEdge",
+      "table" : "na_private_edge",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
+          "kind" : "factory",
+          "via" : null,
+          "site" : "EdgeDto.of(NaPrivateEdge)"
+        },
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PrivateEdgeDto",
+          "kind" : "factory",
+          "via" : null,
+          "site" : "PrivateEdgeDto.of(NaPrivateEdge)"
+        },
+        {
+          "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$TunnelDto",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "PeersResource.tunnel(UUID)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "getPeerTunnel",
+          "method" : "GET",
+          "path" : "/peers/{peerId}/tunnel",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "getPrivateEdge",
+          "method" : "GET",
+          "path" : "/private-edge",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PrivateEdgeDto",
+          "kind" : "returns"
+        }
+      ]
+    }
+  ]
+}

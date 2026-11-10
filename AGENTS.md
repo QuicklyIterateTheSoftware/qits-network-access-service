@@ -27,10 +27,10 @@ qits-maintenance's bumps — never by hand.
   the WRITE set on each write method, which REPLACES the class-level one. Where `qits:admin-agent` is
   admitted, so is `qits:desk-admin` (`DeskAdminParityTest`). `RoleMatrixTest` pins the matrix.
 - **The caller** is the token's `sub` (`api/Callers`), never the principal name.
-- **Events** go through `QitsEventBus.publish` inside the write transaction, after the flush. A
-  record component must never be called `name`: it would override `QitsEvent.name()`, the event's
-  name on the wire, and be dropped from the payload. Use `peerName` with `@JsonProperty("name")`
-  (`PeerEventPayloadTest`).
+- **Events** go through `QitsEventBus.publish` inside the write transaction, after the flush. No
+  payload field may be called `name`: it is `QitsEvent.name()`, the event's name on the envelope,
+  which qits-eventstream's mix-in hides from every payload. The peer's label is `peerName`
+  (`PeerEventPayloadTest`); `eventId` and `occurredAt` ride the envelope.
 - **Every served type** is a nested record of `api/NetworkAccessWire` and is listed in
   `api/ApiWireReflection` (`ApiWireReflectionTest`).
 - **Log writes at INFO** with the caller's subject and the peer's id. Never log a key.

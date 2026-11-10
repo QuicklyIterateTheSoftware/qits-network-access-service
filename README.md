@@ -92,10 +92,11 @@ Published through `QitsEventBus` in the transaction that writes the row, after i
 
 | Event | Payload |
 |---|---|
-| `PeerRegistered` | `peerId, kind, name, publicKey, tunnelIp, ownerUserId` (DEVICE), `targetId` (NODE) |
-| `PeerRevoked` | `peerId, kind, name, publicKey, tunnelIp, reason` |
+| `PeerRegistered` | `peerId, kind, peerName, publicKey, tunnelIp, ownerUserId` (DEVICE), `targetId` (NODE) |
+| `PeerRevoked` | `peerId, kind, peerName, publicKey, tunnelIp, reason` |
 
-`eventId` and `occurredAt` travel in the envelope. Consumers decode private wire DTOs; there is no
+`eventId` and `occurredAt` travel in the envelope. The peer's label is `peerName`, never `name`:
+that is `QitsEvent.name()`, the event's own name, and the library hides it from every payload. Consumers decode private wire DTOs; there is no
 shared events jar.
 
 ## Still to come (the design's later sections)
