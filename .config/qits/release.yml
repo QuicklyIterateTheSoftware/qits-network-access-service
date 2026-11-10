@@ -1,16 +1,14 @@
 # How this repository releases: the packaged java-service recipe (qits-ci-service
-# ci/src/main/resources/release-archetypes/java-service.yml) — build and test the fold, then push the
-# one image and publish the declared contracts.
+# ci/src/main/resources/release-archetypes/java-service.yml) for QA, and a `release:` slot of its
+# own (below) for the publish, because this repository ships TWO images.
 archetype: java-service
 
 artifacts:
   - { type: docker, name: qits/qits-network-access, sbom: .sbom/sbom.json }
-  # ONE IMAGE FOR NOW, ON PURPOSE. The design ships a second image from this repository, the
-  # companion `{type: docker, name: qits/qits-network-access-companion, sbom: sbom-companion.json}`,
-  # built from docker/Dockerfile's `companion` target. It arrives with the companion task, together
-  # with the explicit `release-request:`/`release:` steps that build both targets (as
-  # qits-projects-daemon's release.yml does for its two images): the packaged java-service recipe
-  # pushes exactly one docker artifact and refuses a second.
+  # The companion (README, "The companion"): docker/Dockerfile's `companion` target, released at the
+  # service's own version, which GET /companion answers. Its SBOM comes out of the `companion-sbom`
+  # target. Both images are pushed by the `release:` slot below.
+  - { type: docker, name: qits/qits-network-access-companion, sbom: sbom-companion.json }
   #
   # The committed OpenAPI document, published as `@apidocs/qits-network-access` on every release
   # (OpenApiSchemaExportTest keeps it current).
@@ -45,3 +43,77 @@ contracts:
     qits-events-service: { packages: [maven] }
     qits-idp-service: { packages: [maven] }
     qits-system-service: { packages: [maven] }
+
+# QA (`release-request:`) IS THE ARCHETYPE'S, untouched: no slot of that name here, so the composer
+# takes java-service's — the image build, then `build and test` with the verify, the userflow
+# catalogue, the deployed-pact verification, the entity-diagram output check and the golden-master
+# coverage check on its last step. Its untargeted image build is the service image, whose stage graph
+# includes `access-client`, so the companion's vet, tests, binary and SBOM are built there too.
+#
+# THE PUBLISH SLOT IS OUR OWN, because java-service's `publish image` step pushes exactly one docker
+# artifact and refuses a second (qits-projects-daemon's release.yml is the precedent for two). A
+# declared slot replaces the archetype's whole `release:` half, so this one step does everything that
+# half did for this repository: java-service's `publish jars` step only builds declared `type: maven`
+# modules and there are none here. What stays the platform's: the composer's release prelude (the
+# `$QITS_VERSION` guard, the tag checkout, the qits CLI on PATH, the run's credential files for this
+# `build:` step) and the postlude on this — the last — step, which submits both declared SBOMs from
+# the paths above, publishes `@apidocs/qits-network-access`, the golden masters, the contract docs
+# and the three pacts, and the changelog. Deploy (phase three) follows from the SoftwareRelease
+# announcements exactly as before.
+#
+# KNOWN CONSEQUENCE, outside this repository: qits-ci announces one SoftwareRelease per docker
+# artifact, and qits-deployments derives the application from the package name and then substitutes
+# deployments.yml's `application: qits-network-access` — so the companion's announcement queues a
+# second deployment of the service, same image, same version. Harmless (an idempotent re-deploy) but
+# redundant; the fix belongs in qits-deployments (skip a docker release that is not the spec's image).
+release:
+  - name: publish images
+    image: qits/build-images/node-docker-base:latest
+    build: true
+    timeout-seconds: 3600
+    script: |
+      # THE COORDINATES ARE THE DECLARATIONS ABOVE, read with java-service's own extractor, so the
+      # images pushed and the images announced cannot drift: exactly these two, in this order.
+      declared=$(sed -n \
+        's/^[[:space:]]*-[[:space:]]*{[[:space:]]*type:[[:space:]]*docker[[:space:]]*,[[:space:]]*name:[[:space:]]*\([^,}[:space:]]*\).*/\1/p' \
+        .config/qits/release.yml | tr '\n' ' ')
+      if [ "$declared" != "qits/qits-network-access qits/qits-network-access-companion " ]; then
+        echo "release.yml declares the docker artifacts '$declared'; this slot pushes" \
+          "qits/qits-network-access and qits/qits-network-access-companion — change both together" >&2
+        exit 1
+      fi
+      # THE ADDRESSES ARE CODE (qits-731). The first path segment is the platform's namespace,
+      # replaced by $QITS_IMAGE_REPOSITORY as java-service does.
+      qits_domain=${QITS_DOMAIN:?this step was told no QITS_DOMAIN}
+      registry="registry.qits.$qits_domain/$QITS_IMAGE_REPOSITORY"
+      service="$registry/qits-network-access:$QITS_VERSION"
+      companion="$registry/qits-network-access-companion:$QITS_VERSION"
+
+      # ONE INVOCATION, FOUR TARGETS. The args and secrets are java-service's QA build's, byte for
+      # byte, so the service push after a green fold is a stack of cache hits; the other three
+      # targets reuse the same stages. No `--opt target` is the service image (the last stage).
+      qits_build() {
+        buildctl build --frontend dockerfile.v0 \
+          --local context=. --local dockerfile=docker \
+          --opt build-arg:QITS_DOMAIN="$qits_domain" \
+          --opt build-arg:QITS_MAVEN_REPOSITORY_URL="https://registry.qits.$qits_domain/artifacts/maven/maven" \
+          --opt build-arg:QITS_MAVEN_CENTRAL_URL="https://mirror.qits.$qits_domain/mirror/maven/central" \
+          --secret id=qits-client-id,src=/tmp/qits-client-id \
+          --secret id=qits-client-secret,src=/tmp/qits-client-secret \
+          "$@"
+      }
+
+      # BOTH PUSHES BEFORE EITHER EXPORT: an export writes into the build context (`.`), and while
+      # .dockerignore keeps both paths out of it, nothing should depend on that to keep a cache hit.
+      echo "releasing $service"
+      qits_build --output "type=image,name=$service,push=true"
+      echo "releasing $companion"
+      qits_build --opt target=companion --output "type=image,name=$companion,push=true"
+
+      # GENERATED, NEVER SUBMITTED: the postlude submits each declared `sbom:` it finds. Both
+      # documents come out of the builds above, cache hits again.
+      qits_build --opt target=sbom --output type=local,dest=.sbom
+      qits_build --opt target=companion-sbom --output type=local,dest=.sbom-companion
+      cp .sbom-companion/sbom-companion.json sbom-companion.json
+      test -s .sbom/sbom.json
+      test -s sbom-companion.json

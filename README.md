@@ -138,8 +138,54 @@ image carries at `/work/node-tunnel/qits-node-tunnel`:
 - `qits-node-tunnel up` (the unit's `ExecStart`): TUN `qits0`, wireguard-go in-process, the address
   and the one route by netlink, split DNS with `resolvectl` when systemd-resolved runs.
 
-Shared code is in `access-client/internal/`, so the companion (`cmd/qits-access-companion`, the
-design's section 6, still to come) builds beside it.
+Shared code is in `access-client/internal/` (the key file, the tunnel JSON, the UAPI text and the
+handshake read), and the companion below builds beside it.
+
+## The companion (`access-client/cmd/qits-access-companion`)
+
+A person's way onto the private edge from any machine with Docker: no TUN, no `NET_ADMIN`, no
+`wg-quick`, no host DNS change. The image `qits/qits-network-access-companion` (docker/Dockerfile's
+`companion` target: `FROM scratch`, the static binary alone, uid 65532, no CA certificates — it
+terminates no TLS) is released with this service at the **same version**, which `GET /companion`
+answers. `qits network-access up` runs it:
+
+    docker run --rm -v qits-network-access-companion:/state <image>:<version> keygen      # prints the public key
+    docker run --rm -i -v qits-network-access-companion:/state <image>:<version> configure < tunnel.json
+    docker run -d --name qits-network-access-companion --restart unless-stopped \
+      -p 127.0.0.1:47813:47813 -v qits-network-access-companion:/state <image>:<version> run
+
+- **`keygen`** creates `/state/private.key` (0600) if it is absent and prints the base64 **public**
+  key; it never prints the private one, and a second call prints the same key. An unreadable key
+  file is an error, never replaced.
+- **`configure`** reads the `GET /peers/{id}/tunnel` answer on stdin, validates it
+  (`internal/tunnel`) and writes `/state/tunnel.json`.
+- **`run`** brings up wireguard-go on gVisor's netstack (`golang.zx2c4.com/wireguard/tun/netstack`,
+  the same wireguard-go commit as the node helper; gVisor at the version that commit requires):
+  `Address = tunnelIp`, the edge as the only peer at `publicAddress:listenPort`, `AllowedIPs =
+  dnsAddress/32`, the answer's MTU, keepalive 25. In front of it, on `0.0.0.0:47813` (docker
+  publishes it to `127.0.0.1` only):
+
+| Request | Answer |
+|---|---|
+| `CONNECT host:443` / `host:80`, `host` in the zone (`edge.domain`) | resolved by asking `dnsAddress:53` **through the tunnel** (UDP, TCP on truncation); an answer inside `tunnelCidr` is dialled through the tunnel (`route=tunnel`), any other answer directly from the container by that address (`route=direct`). A name the tunnel cannot resolve is 502 — never retried through the container's resolver |
+| `CONNECT host:443` / `host:80`, any other host | dialled directly, through the container's own resolver (`route=direct`) |
+| `CONNECT` an IP literal | through the tunnel when inside `tunnelCidr`, else directly |
+| `CONNECT` any other port, any other method, an absolute-form (forward-proxy) request | 405, `Allow: CONNECT` — this is no open proxy |
+| `GET /healthz` | `{peerId, tunnelIp, lastHandshake, endpoint}`; 200 when the device's last handshake (`IpcGet`'s `last_handshake_time_*`) is within 3 minutes, else 503 (`lastHandshake: null` before the first) |
+
+One log line per request — `CONNECT host=<host:port> route=tunnel|direct status=<code>` — and
+never a key. An upstream that cannot be dialled is 502.
+
+The tests (`go test ./...`) cover the routing with a fake resolver and fake dialers (in-zone tunnel
+answer, in-zone public answer, out of zone, IP literals, an unresolvable in-zone name), the 405
+refusals, the healthz states, keygen persistence and `configure`'s validation, plus one end-to-end
+test with two in-process netstack devices over loopback UDP: a stand-in edge at `100.96.0.1`
+answering DNS and echoing on `:443`, and the companion's own device.
+
+**Released by this repository's own `release:` slot** (`.config/qits/release.yml`): java-service's
+publish step pushes exactly one image, so the slot pushes both — the service (untargeted) and
+`--opt target=companion` — then lifts both SBOMs (`target=sbom`, `target=companion-sbom`, the latter
+written by `cyclonedx-gomod` from the binary's build info). QA is still the archetype's.
 
 ## Building
 

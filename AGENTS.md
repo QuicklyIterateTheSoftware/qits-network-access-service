@@ -21,8 +21,8 @@ qits-maintenance's bumps — never by hand.
   unit and the Flyway lineage at `db/networkaccess/migration`. Pure unit tests only.
 - `service/` — the deployable: the REST surface (`api`), the durable consumers (`bus`), the
   qits-system client of the node join (`system`), and every database-backed test.
-- `access-client/` — the Go module: `cmd/qits-node-tunnel` (the node helper), shared code in
-  `internal/`. `go vet ./... && go test ./...` there; the Dockerfile's `access-client` stage runs the
+- `access-client/` — the Go module: `cmd/qits-node-tunnel` (the node helper),
+  `cmd/qits-access-companion` (the companion image's binary), shared code in `internal/`. `go vet ./... && go test ./...` there; the Dockerfile's `access-client` stage runs the
   same. Not part of the Maven reactor.
 
 ## Conventions

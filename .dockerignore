@@ -22,3 +22,9 @@
 # bust the copy layer.
 *.md
 docker
+
+# What the release step exports next to the tree (the two SBOMs). Exported only after both images
+# are pushed, and kept out of the context anyway, so they can never bust a copy layer.
+.sbom
+.sbom-companion
+sbom-companion.json
