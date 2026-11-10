@@ -15,13 +15,14 @@
 # qits-deployments injects from .config/qits/deployments.yml. A fallback store would be a peer list
 # nobody meant.
 #
-# STAGES STILL TO COME (the design page, sections 5 and 6), and where they go:
-#   - `access-client`, a Go stage FROM mirror.qits.${QITS_DOMAIN}/hub/library/golang:1.25 building
-#     access-client/cmd/qits-node-tunnel and cmd/qits-access-companion; the runtime stage then copies
-#     qits-node-tunnel to /work/node-tunnel/qits-node-tunnel (GET /nodes/qits-node-tunnel serves it);
-#   - `companion`, a separate final target (scratch or distroless static, uid 65532) holding
-#     /qits-access-companion only, released as qits/qits-network-access-companion.
-# Until then this file builds the service image alone, which is what release.yml declares.
+# THE NODE HELPER is built here too: the `access-client` stage compiles access-client/ (a Go module,
+# not part of the Maven reactor) into a static qits-node-tunnel, and the runtime stage carries it at
+# /work/node-tunnel/qits-node-tunnel, which GET /nodes/qits-node-tunnel serves to a node's install
+# line.
+#
+# STILL TO COME (the design page, section 6): cmd/qits-access-companion in the same stage, and a
+# separate final target `companion` (scratch or distroless static, uid 65532) holding
+# /qits-access-companion only, released as qits/qits-network-access-companion.
 
 ARG QITS_DOMAIN=wohlben.eu
 
@@ -60,6 +61,23 @@ RUN --mount=type=secret,id=qits-client-id \
       -DoutputFormat=json -DoutputName=sbom -DschemaVersion=1.6 \
       -Dcyclonedx.skipNotDeployed=false
 
+# --- stage `access-client`: the Go helpers ------------------------------------------------------
+# The shape of qits-edge's `wireguard` stage (docker/edge-init): static (CGO_ENABLED=0), stripped,
+# so the binary needs nothing from the node it runs on. go.sum pins every module, wireguard-go
+# included, at the commit of tag 0.0.20250522 (f333402bd9cb), the edge's own. The downloads go to the
+# internet (proxy.golang.org), as the edge's do; go.mod and go.sum are copied first, so the module
+# download is a cached layer until they change. vet and the tests run before the build, so a red
+# helper fails the image.
+FROM mirror.qits.${QITS_DOMAIN}/hub/library/golang:1.25 AS access-client
+ENV CGO_ENABLED=0
+WORKDIR /src/access-client
+COPY access-client/go.mod access-client/go.sum ./
+RUN go mod download
+COPY access-client/ ./
+RUN go vet ./... \
+ && go test ./... \
+ && go build -trimpath -ldflags '-s -w' -o /out/qits-node-tunnel ./cmd/qits-node-tunnel
+
 # --- sbom -----------------------------------------------------------------------------------------
 # Lifted out by the release step with `--opt target=sbom --output type=local`, with the same args and
 # secrets as the image build, so every layer above is a cache hit.
@@ -78,6 +96,10 @@ RUN curl --version >/dev/null
 # native.image.path in service/pom.xml. The three move together.
 COPY --from=build --chown=1001:root /src/service/target/qits-network-access /work/qits-network-access
 RUN chmod +x /work/qits-network-access
+
+# The node helper GET /nodes/qits-node-tunnel serves (qits.network-access.node-tunnel.path). The
+# path moves together with that property.
+COPY --from=access-client --chown=1001:root /out/qits-node-tunnel /work/node-tunnel/qits-node-tunnel
 
 # Nothing to own: every durable fact is a row in the database.
 EXPOSE 8080

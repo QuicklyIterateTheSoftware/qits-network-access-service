@@ -71,12 +71,23 @@ for a desk or a service, that client's id, which no `UserDeleted` matches (revok
 | `GET /peers/{id}/config` | `text/plain`, the `wg-quick` config; 409 until an edge announced itself | read |
 | `GET /peers/{id}/tunnel` | `{peerId, tunnelIp, edge: {publicKey, publicAddress, listenPort, dnsAddress, tunnelCidr, mtu, domain}}`, the companion's input | read |
 | `GET /nodes`, `GET /nodes/{targetId}` | joined nodes with their ACTIVE peer | read |
+| `POST /nodes/{targetId}/join` `{name, publicKey}` | 200, the node's tunnel answer (as `/peers/{id}/tunnel`); 403 another target's token; 409 no edge yet, a key another peer holds, or a full pool; 503 qits-system unreachable | write, or `qits:target-runner-registration` (checked) |
+| `GET /nodes/qits-node-tunnel` | `application/octet-stream`, the static helper a node's install line runs | read, or `qits:target-runner-registration` |
 | `GET /companion` | `{image: "registry.qits.<domain>/qits/qits-network-access-companion", version}`, this service's version | read |
 | `GET /private-edge` | the announced edge, or 404 | read |
 
 - **read**: `qits:admin`, `qits:admin-agent`, `qits:desk-admin`, `qits:desk`, `qits:agent`,
   `qits:system`. A config holds no secret, so it is a read.
 - **write**: the same without `qits:agent` (403).
+
+**The node join.** A node's registration token (`qits:target-runner-registration`) is asked about at
+qits-system — `POST /system/api/targets/{id}/registration-check {subject: <the token's sub>}`, with
+this service's own `qits` client bearer (`system/RegistrationCheck`) — and only a 200 naming this
+very target admits it; qits-system's target name then names the node. The write set skips the check
+(an operator's repair) and names the node by the body. Then: the node row is upserted; an ACTIVE
+peer of the node under the same key is answered unchanged (a re-run of the install line); otherwise
+the old peer is revoked `REPLACED` and a new NODE peer registered, keeping the node's last address
+when it is free. Nothing is written before a private edge announced itself (409).
 
 Names are DNS labels (`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`); a public key is 44 characters of
 base64 decoding to 32 bytes.
@@ -93,22 +104,42 @@ Published through `QitsEventBus` in the transaction that writes the row, after i
 | Event | Payload |
 |---|---|
 | `PeerRegistered` | `peerId, kind, peerName, publicKey, tunnelIp, ownerUserId` (DEVICE), `targetId` (NODE) |
-| `PeerRevoked` | `peerId, kind, peerName, publicKey, tunnelIp, reason` |
+| `PeerRevoked` | `peerId, kind, peerName, publicKey, tunnelIp, reason` (a re-join's `REPLACED` precedes its `PeerRegistered`) |
 
 `eventId` and `occurredAt` travel in the envelope. The peer's label is `peerName`, never `name`:
 that is `QitsEvent.name()`, the event's own name, and the library hides it from every payload. Consumers decode private wire DTOs; there is no
 shared events jar.
 
-## Still to come (the design's later sections)
+## The consumers
 
-- **Consumers** (section 4): durable listeners for `PrivateEdgeAnnounced` (upsert
-  `na_private_edge`), `UserDeleted` (revoke the owner's devices, USER_DELETED) and `TargetDeleted`
-  (revoke the node's peer, NODE_DELETED).
-- **Node join** (section 5): `POST /nodes/{targetId}/join`, checked against qits-system's
-  registration-check door, and `GET /nodes/qits-node-tunnel`, the static Go helper from
-  `access-client/`.
-- **The companion** (section 6): `qits/qits-network-access-companion`, a netstack WireGuard client
-  with an HTTP CONNECT proxy, built from this repository beside the service image.
+Durable listeners (`bus/`), each replaying from the epoch, selecting only frames of this service's
+own environment (`qits.network-access.environment`, the deployer's `QITS_ENVIRONMENT`), idempotent
+under replay, and settling a frame they cannot read with a WARN instead of throwing:
+
+| consumerId | Event (publisher) | Effect |
+|---|---|---|
+| `network-access-private-edge` | `PrivateEdgeAnnounced` (qits-edge-private) | upsert `na_private_edge` by `application`, only when the frame's `occurredAt` is newer |
+| `network-access-user-deleted` | `UserDeleted` (qits-idp) | revoke every ACTIVE DEVICE peer whose owner is `userId`, `USER_DELETED`, by `qits-idp` |
+| `network-access-target-deleted` | `TargetDeleted` (qits-system) | revoke the target's ACTIVE NODE peer, `NODE_DELETED`, by `qits-system`; set `na_node.deleted_at` |
+
+Each decodes a private wire DTO. The payload carries neither `eventId` nor `occurredAt` (both are on
+the frame) and no field called `name`.
+
+## The node helper (`access-client/`)
+
+A Go module (go 1.25, `golang.zx2c4.com/wireguard` at the commit of tag `0.0.20250522`, the edge's
+wireguard-go) built by `docker/Dockerfile`'s `access-client` stage into a static binary the service
+image carries at `/work/node-tunnel/qits-node-tunnel`:
+
+- `qits-node-tunnel join --url <base> --target <id> [--name <host>]`, as root, with the token in
+  `QITS_SYSTEM_RUNNER_REGISTRATION_TOKEN`: keeps its key in `/etc/qits/node-tunnel/private.key`,
+  joins, writes `tunnel.json` and the systemd unit `qits-node-tunnel.service`, and enables it. Exit
+  `0` joined, `2` usage, `3` refused or unreachable, `4` no systemd, `1` anything else.
+- `qits-node-tunnel up` (the unit's `ExecStart`): TUN `qits0`, wireguard-go in-process, the address
+  and the one route by netlink, split DNS with `resolvectl` when systemd-resolved runs.
+
+Shared code is in `access-client/internal/`, so the companion (`cmd/qits-access-companion`, the
+design's section 6, still to come) builds beside it.
 
 ## Building
 

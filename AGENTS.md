@@ -19,7 +19,11 @@ qits-maintenance's bumps — never by hand.
 - `domain/` — entities (`entity`), the allocation, validation, config render and the registry
   (`control`), and the published events (`events`). Owns the `networkaccess` datasource, persistence
   unit and the Flyway lineage at `db/networkaccess/migration`. Pure unit tests only.
-- `service/` — the deployable: the REST surface (`api`), and every database-backed test.
+- `service/` — the deployable: the REST surface (`api`), the durable consumers (`bus`), the
+  qits-system client of the node join (`system`), and every database-backed test.
+- `access-client/` — the Go module: `cmd/qits-node-tunnel` (the node helper), shared code in
+  `internal/`. `go vet ./... && go test ./...` there; the Dockerfile's `access-client` stage runs the
+  same. Not part of the Maven reactor.
 
 ## Conventions
 
@@ -31,6 +35,12 @@ qits-maintenance's bumps — never by hand.
   payload field may be called `name`: it is `QitsEvent.name()`, the event's name on the envelope,
   which qits-eventstream's mix-in hides from every payload. The peer's label is `peerName`
   (`PeerEventPayloadTest`); `eventId` and `occurredAt` ride the envelope.
+- **Consumers** (`bus/`) decode private wire DTOs with `CanonicalJson.payloadTo`, never a
+  publisher's jar; a frame they cannot use is logged and settled, never thrown. Each one is listed in
+  `EventstreamPactTest` (its guard fails otherwise) and its DTO in `ApiWireReflection`.
+- **Outbound calls** go through a MicroProfile REST client whose every method is a row of that
+  provider's consumer pact (`contracts/consumer/OutboundCallGuardTest`); the bearer is the `qits`
+  client's (`system/SystemBearer`), the one class allowed an `OidcClient`.
 - **Every served type** is a nested record of `api/NetworkAccessWire` and is listed in
   `api/ApiWireReflection` (`ApiWireReflectionTest`).
 - **Log writes at INFO** with the caller's subject and the peer's id. Never log a key.
@@ -46,6 +56,7 @@ Every one of these compares by default and fails with a diff; `-Dgolden.update=t
 | `golden-masters/**` | `contracts/GoldenMasterRecordingTest` |
 | `pacts/*_qits-idp-service.json` | `contracts/consumer/IdpPactTest` |
 | `pacts/*_qits-events-service.json` | `EventstreamPactTest` |
+| `pacts/*_qits-system-service.json` | `contracts/consumer/SystemPactTest` (reads a fixture copy of qits-system's recording until its golden masters are published with the state) |
 | `docs/database/networkaccess.md` | `qits database diagram` (below) |
 
 The entity diagram:
