@@ -1,0 +1,15 @@
+{
+  "id": "00000000-0000-4000-8000-000000000001",
+  "kind": "DEVICE",
+  "name": "laptop",
+  "publicKey": "AAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc=",
+  "tunnelIp": "100.96.0.10",
+  "ownerUserId": "operator",
+  "targetId": null,
+  "status": "REVOKED",
+  "createdAt": "2026-01-01T00:00:00Z",
+  "createdBy": "operator",
+  "revokedAt": "2026-01-01T00:00:00Z",
+  "revokedBy": "operator",
+  "revokeReason": "REVOKED"
+}

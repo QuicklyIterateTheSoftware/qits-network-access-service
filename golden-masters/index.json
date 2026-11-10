@@ -1,0 +1,210 @@
+{
+  "formatVersion": 1,
+  "provider": "qits-network-access",
+  "states": [
+    {
+      "name": "a device peer behind an announced private edge",
+      "slug": "a-device-peer-behind-an-announced-private-edge",
+      "params": {
+        "peerId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "getPeer",
+          "method": "GET",
+          "path": "/network-access/api/peers/{peerId}",
+          "status": 200,
+          "file": "a-device-peer-behind-an-announced-private-edge/getPeer.json",
+          "frozen": {
+            "ids": [
+              "$.id"
+            ],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getPeerConfig",
+          "method": "GET",
+          "path": "/network-access/api/peers/{peerId}/config",
+          "status": 200,
+          "file": "a-device-peer-behind-an-announced-private-edge/getPeerConfig.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getPeerTunnel",
+          "method": "GET",
+          "path": "/network-access/api/peers/{peerId}/tunnel",
+          "status": 200,
+          "file": "a-device-peer-behind-an-announced-private-edge/getPeerTunnel.json",
+          "frozen": {
+            "ids": [
+              "$.peerId"
+            ],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getPeers",
+          "method": "GET",
+          "path": "/network-access/api/peers",
+          "status": 200,
+          "file": "a-device-peer-behind-an-announced-private-edge/getPeers.json",
+          "frozen": {
+            "ids": [
+              "$[*].id"
+            ],
+            "instants": [
+              "$[*].createdAt"
+            ],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "revokePeer",
+          "method": "POST",
+          "path": "/network-access/api/peers/{peerId}/revoke",
+          "status": 200,
+          "file": "a-device-peer-behind-an-announced-private-edge/revokePeer.json",
+          "frozen": {
+            "ids": [
+              "$.id"
+            ],
+            "instants": [
+              "$.createdAt",
+              "$.revokedAt"
+            ],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a joined node",
+      "slug": "a-joined-node",
+      "params": {
+        "peerId": "00000000-0000-4000-8000-000000000001",
+        "targetId": "00000000-0000-4000-8000-000000000002"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "getNode",
+          "method": "GET",
+          "path": "/network-access/api/nodes/{targetId}",
+          "status": 200,
+          "file": "a-joined-node/getNode.json",
+          "frozen": {
+            "ids": [
+              "$.targetId",
+              "$.peer.id",
+              "$.peer.targetId"
+            ],
+            "instants": [
+              "$.createdAt",
+              "$.lastJoinedAt",
+              "$.peer.createdAt"
+            ],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getNodes",
+          "method": "GET",
+          "path": "/network-access/api/nodes",
+          "status": 200,
+          "file": "a-joined-node/getNodes.json",
+          "frozen": {
+            "ids": [
+              "$[*].targetId",
+              "$[*].peer.id",
+              "$[*].peer.targetId"
+            ],
+            "instants": [
+              "$[*].createdAt",
+              "$[*].lastJoinedAt",
+              "$[*].peer.createdAt"
+            ],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "an announced private edge",
+      "slug": "an-announced-private-edge",
+      "params": {
+        "publicKey": "AAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc="
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "createPeer",
+          "method": "POST",
+          "path": "/network-access/api/peers",
+          "body": {
+            "name": "laptop",
+            "publicKey": "AAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc="
+          },
+          "status": 201,
+          "file": "an-announced-private-edge/createPeer.json",
+          "frozen": {
+            "ids": [
+              "$.id"
+            ],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getCompanion",
+          "method": "GET",
+          "path": "/network-access/api/companion",
+          "status": 200,
+          "file": "an-announced-private-edge/getCompanion.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getPrivateEdge",
+          "method": "GET",
+          "path": "/network-access/api/private-edge",
+          "status": 200,
+          "file": "an-announced-private-edge/getPrivateEdge.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.announcedAt"
+            ],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    }
+  ]
+}

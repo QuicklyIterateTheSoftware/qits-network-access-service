@@ -1,0 +1,24 @@
+[
+  {
+    "targetId": "00000000-0000-4000-8000-000000000002",
+    "name": "node-a",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "lastJoinedAt": "2026-01-01T00:00:00Z",
+    "deletedAt": null,
+    "peer": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "kind": "NODE",
+      "name": "node-a",
+      "publicKey": "AAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc=",
+      "tunnelIp": "100.96.0.11",
+      "ownerUserId": null,
+      "targetId": "00000000-0000-4000-8000-000000000002",
+      "status": "ACTIVE",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "createdBy": "dev-qits-system",
+      "revokedAt": null,
+      "revokedBy": null,
+      "revokeReason": null
+    }
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "application": "qits-edge-private",
+  "publicKey": "AAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc=",
+  "publicAddress": "46.224.171.33",
+  "listenPort": 47812,
+  "tunnelAddress": "100.96.0.1",
+  "tunnelCidr": "100.96.0.0/24",
+  "dnsAddress": "100.96.0.1",
+  "mtu": 1380,
+  "domain": "wohlben.eu",
+  "announcedAt": "2026-01-01T00:00:00Z"
+}

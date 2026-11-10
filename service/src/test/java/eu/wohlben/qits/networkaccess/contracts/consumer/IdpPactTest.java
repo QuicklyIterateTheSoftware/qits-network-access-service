@@ -1,0 +1,122 @@
+package eu.wohlben.qits.networkaccess.contracts.consumer;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import eu.wohlben.qits.pact.consumer.ConsumerPact;
+import eu.wohlben.qits.pact.consumer.GoldenInteraction;
+import eu.wohlben.qits.pact.consumer.GoldenMasters;
+import eu.wohlben.qits.pact.consumer.Trigger;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import org.jose4j.jwk.JsonWebKey;
+import org.jose4j.jwk.JsonWebKeySet;
+import org.jose4j.jwk.RsaJsonWebKey;
+import org.junit.jupiter.api.Test;
+
+/**
+ * <b>What this service asks qits-idp-service</b> (ticket qits-1149): the two reads quarkus-oidc makes
+ * when the machine-auth gate turns the tenant on. At startup ({@code jwks.resolve-early}, retried
+ * for {@code connection-delay}) it reads the discovery document from {@code auth-server-url}, then
+ * the JWKS at the document's {@code jwks_uri}. It finds a key by {@code kid} and builds it from
+ * {@code kty}, {@code n} and {@code e}, selected by {@code alg} and {@code use}.
+ *
+ * <p><b>And the token this service presents</b> (qits-543/qits-1330): the client-credentials mint
+ * of the named client {@code qits} — {@code POST /idp/token} with HTTP Basic, {@code
+ * grant_type=client_credentials} and {@code audience=qits-platform} — recorded by qits-idp as
+ * {@code issueToken} in {@value #A_SERVICE_CLIENT_CALLING_ITS_PEERS}. No class of this source tree
+ * spends the token: the qits-eventstream library's calls do, asking {@code OidcClients} for {@code
+ * qits} (qits-1328), so that is the row's trigger. {@code IdpTokenMintPactTest} runs it through the
+ * real oidc client, because the client only exists inside the application.
+ *
+ * <p>The pact is {@code pacts/qits-network-access-service_qits-idp-service.json}; {@code
+ * -Dgolden.update=true} rewrites it.
+ */
+class IdpPactTest {
+
+  static final String CONSUMER = "qits-network-access-service";
+
+  static final GoldenMasters IDP = GoldenMasters.of("qits-idp-service", "qits-idp");
+
+  static final String STATE = "a published signing key";
+
+  static final Trigger STARTUP = Trigger.event("StartupEvent");
+
+  /**
+   * The discovery document: the issuer the tenant checks {@code iss} against, and where the keys are.
+   * The issuer is bound exactly: a different value fails every token, so its type is not enough.
+   */
+  static final GoldenInteraction DISCOVERY =
+      GoldenInteraction.of(STARTUP, STATE, "getOpenIdConfiguration")
+          .consumes("issuer", "jwks_uri", "token_endpoint")
+          .exact("issuer");
+
+  /** The JWKS: at least one key, each with what quarkus-oidc needs to build and pick it. */
+  static final GoldenInteraction JWKS =
+      GoldenInteraction.of(STARTUP, STATE, "getJwks")
+          .consumes("keys[].kid", "keys[].kty", "keys[].n", "keys[].e", "keys[].alg", "keys[].use");
+
+  /** The qits-idp state that records the client-credentials mint of a service client. */
+  static final String A_SERVICE_CLIENT_CALLING_ITS_PEERS = "a service client calling its peers";
+
+  /**
+   * The mint, caused by whichever qits-eventstream call needs a bearer first (qits-1328): the
+   * subscriber's stream, the publisher's PUT or the query's read.
+   */
+  static final GoldenInteraction MINT =
+      GoldenInteraction.of(
+              Trigger.of("call", "call", "qits-eventstream (subscriber, publisher, query)"),
+              A_SERVICE_CLIENT_CALLING_ITS_PEERS,
+              "issueToken")
+          .header("Authorization", "{authorization}")
+          .consumes("access_token", "expires_in");
+
+  static final ConsumerPact PACT = ConsumerPact.of(CONSUMER, IDP, MINT, DISCOVERY, JWKS);
+
+  private static final ObjectMapper JSON = new ObjectMapper();
+
+  @Test
+  void quarkusOidcReadsTheDiscoveryDocument() {
+    PACT.run(DISCOVERY, (url, recorded) -> {
+      JsonNode doc = JSON.readTree(get(url + recorded.path()));
+      assertTrue(doc.path("issuer").isTextual(), "issuer: " + doc);
+      URI.create(doc.path("jwks_uri").asText());
+      URI.create(doc.path("token_endpoint").asText());
+    });
+  }
+
+  @Test
+  void quarkusOidcFindsThePublishedSigningKey() {
+    PACT.run(JWKS, (url, recorded) -> {
+      JsonWebKeySet keys = new JsonWebKeySet(get(url + recorded.path()));
+      JsonWebKey key =
+          keys.findJsonWebKey(recorded.params().get("kid"), RsaJsonWebKey.KEY_TYPE, "sig", "RS256");
+      assertNotNull(key, () -> "an RSA signing key for RS256 named by the state's kid in " + keys.getJsonWebKeys());
+      assertNotNull(((RsaJsonWebKey) key).getRsaPublicKey().getModulus());
+    });
+  }
+
+  @Test
+  void theCommittedPactIsWhatTheRowsWrite() {
+    PACT.compareOrWritePactFile();
+  }
+
+  @Test
+  void everyInteractionCarriesBothReferences() {
+    PACT.assertEveryInteractionCarriesBothReferences();
+    assertEquals(3, PACT.recorded().size(), "all three rows recorded: " + PACT.unrecorded());
+  }
+
+  private static String get(String url) throws Exception {
+    HttpResponse<String> answer = HttpClient.newHttpClient().send(
+        HttpRequest.newBuilder(URI.create(url)).header("Accept", "application/json").build(),
+        HttpResponse.BodyHandlers.ofString());
+    assertEquals(200, answer.statusCode(), answer.body());
+    return answer.body();
+  }
+}
