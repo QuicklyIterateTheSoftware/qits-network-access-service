@@ -6,7 +6,7 @@
     <parent>
         <groupId>eu.wohlben.qits</groupId>
         <artifactId>qits-network-access</artifactId>
-        <version>2026.1110.181120</version>
+        <version>2026.1110.191501</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <!-- The domain: na_node, na_peer and na_private_edge, their Flyway lineage, the tunnel address
