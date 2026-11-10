@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- qits-network-access — who may reach the platform's private edge, and as which address.
+
+         It owns the WireGuard peers (devices and nodes), allocates their tunnel addresses, renders
+         their configs and announces every registration and revocation on qits-events, which the
+         private edge applies live. See README.md for the design.
+
+         Two modules, as qits-stt has:
+
+           domain   the entities, the Flyway lineage, the allocation and the registry (control) and
+                    the events this service publishes. It owns the datasource and the persistence
+                    unit.
+           service  the deployable: the REST surface under /network-access/api.
+
+         There is no parent and no BOM of the estate's own: a clone of THIS repository alone must
+         build. The Quarkus platform and the platform jars are pinned here, at the versions
+         qits-containers-service pins (the closest sibling: postgresql, eventstream and an idp
+         client). Exact versions, never ranges: qits-maintenance bumps each one. -->
+    <groupId>eu.wohlben.qits</groupId>
+    <artifactId>qits-network-access</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>qits-network-access</name>
+
+    <modules>
+        <module>domain</module>
+        <module>service</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <pact.version>4.7.5</pact.version>
+        <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
+        <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
+        <quarkus.platform.version>3.40.1</quarkus.platform.version>
+        <compiler-plugin.version>3.15.0</compiler-plugin.version>
+        <surefire-plugin.version>3.5.4</surefire-plugin.version>
+        <failsafe-plugin.version>${surefire-plugin.version}</failsafe-plugin.version>
+        <jandex-plugin.version>3.4.0</jandex-plugin.version>
+        <!-- The datasource resilience pair (PatientPgDriver/DbRetry, and the rule that checks the
+             block). They move together: the rule names the driver as a string. -->
+        <qits.db-core.version>2026.1107.191249</qits.db-core.version>
+        <qits.arch-rules.version>2026.1108.20205</qits.arch-rules.version>
+        <!-- Machine identity: the rollout gate every sibling shares. -->
+        <qits.auth-core.version>2026.1106.507</qits.auth-core.version>
+        <!-- Caller stamping on inbound and outbound HTTP. -->
+        <qits.http-core.version>2026.1106.507</qits.http-core.version>
+        <!-- OTLP export to qits-observability through the edge, with the `qits` client's bearer. -->
+        <qits.telemetry-core.version>2026.1106.507</qits.telemetry-core.version>
+        <!-- The event bus client: PeerRegistered and PeerRevoked are published through it, and the
+             consumers of section 4 (PrivateEdgeAnnounced, UserDeleted, TargetDeleted) will listen
+             through it. qits-eventstream-contracts, its pact kit, always rides the same version. -->
+        <qits.eventstream.version>2026.1109.164031</qits.eventstream.version>
+        <!-- The consumer pacts against qits-idp-service (test scope): the shared golden-master
+             reader and what qits-idp answers in each provider state. -->
+        <!-- The user-story framework and the recording service mocks (test scope): the userflow
+             catalogue (stories/**IT) boots the PACKAGED service against idp.MockIdp and emits its
+             documentation under service/target/userstories/, which the java-service release recipe
+             publishes as @userflows/qits-network-access. -->
+        <qits.userflows.version>2026.1106.205</qits.userflows.version>
+        <qits.service-mock.version>2026.1106.507</qits.service-mock.version>
+        <qits.pact-consumer.version>2026.1106.507</qits.pact-consumer.version>
+        <qits.idp-golden-masters.version>2026.1109.13349</qits.idp-golden-masters.version>
+        <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
+        <!-- Real PostgreSQL binaries as a maven dependency, spawned by the suite: a clone tests
+             green with NO DOCKER, so no Testcontainers and no dev services. -->
+        <zonky.embedded-postgres.version>2.2.2</zonky.embedded-postgres.version>
+        <zonky.postgres-binaries.version>18.6.0</zonky.postgres-binaries.version>
+        <!-- Integration tests run against a PACKAGED artifact; a plain `mvn verify` skips them. -->
+        <skipITs>true</skipITs>
+        <argLine/>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>${quarkus.platform.artifact-id}</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.zonky.test.postgres</groupId>
+                <artifactId>embedded-postgres-binaries-bom</artifactId>
+                <version>${zonky.postgres-binaries.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.zonky.test</groupId>
+                <artifactId>embedded-postgres</artifactId>
+                <version>${zonky.embedded-postgres.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>au.com.dius.pact.provider</groupId>
+                <artifactId>junit5</artifactId>
+                <version>${pact.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>au.com.dius.pact.consumer</groupId>
+                <artifactId>junit5</artifactId>
+                <version>${pact.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-pact-consumer</artifactId>
+                <version>${qits.pact-consumer.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-idp-golden-masters</artifactId>
+                <version>${qits.idp-golden-masters.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-db-core</artifactId>
+                <version>${qits.db-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-eventstream</artifactId>
+                <version>${qits.eventstream.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-eventstream-contracts</artifactId>
+                <version>${qits.eventstream.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-arch-rules</artifactId>
+                <version>${qits.arch-rules.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-auth-core</artifactId>
+                <version>${qits.auth-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-http-core</artifactId>
+                <version>${qits.http-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-telemetry-core</artifactId>
+                <version>${qits.telemetry-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-userflows</artifactId>
+                <version>${qits.userflows.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-service-mock</artifactId>
+                <version>${qits.service-mock.version}</version>
+            </dependency>
+            <!-- The reactor's own module, so `service` depends on it version-less. -->
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-network-access-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <repositories>
+        <!-- The platform's own Maven repository, where the qits-* jars above are published. The id
+             must stay `qits-maven` (.qits-maven-settings.xml mirrors exactly that id). -->
+        <repository>
+            <id>qits-maven</id>
+            <url>${qits.maven.repository.url}</url>
+        </repository>
+    </repositories>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>${quarkus.platform.group-id}</groupId>
+                    <artifactId>quarkus-maven-plugin</artifactId>
+                    <version>${quarkus.platform.version}</version>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${compiler-plugin.version}</version>
+                    <configuration>
+                        <parameters>true</parameters>
+                        <useIncrementalCompilation>false</useIncrementalCompilation>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${surefire-plugin.version}</version>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${failsafe-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>io.smallrye</groupId>
+                    <artifactId>jandex-maven-plugin</artifactId>
+                    <version>${jandex-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>make-index</id>
+                            <goals>
+                                <goal>jandex</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

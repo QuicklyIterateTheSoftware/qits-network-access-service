@@ -1,0 +1,43 @@
+# How this repository releases: the packaged java-service recipe (qits-ci-service
+# ci/src/main/resources/release-archetypes/java-service.yml) — build and test the fold, then push the
+# one image and publish the declared contracts.
+archetype: java-service
+
+artifacts:
+  - { type: docker, name: qits/qits-network-access, sbom: .sbom/sbom.json }
+  # ONE IMAGE FOR NOW, ON PURPOSE. The design ships a second image from this repository, the
+  # companion `{type: docker, name: qits/qits-network-access-companion, sbom: sbom-companion.json}`,
+  # built from docker/Dockerfile's `companion` target. It arrives with the companion task, together
+  # with the explicit `release-request:`/`release:` steps that build both targets (as
+  # qits-projects-daemon's release.yml does for its two images): the packaged java-service recipe
+  # pushes exactly one docker artifact and refuses a second.
+  #
+  # The committed OpenAPI document, published as `@apidocs/qits-network-access` on every release
+  # (OpenApiSchemaExportTest keeps it current).
+  - { type: docs, name: "@apidocs/qits-network-access", path: docs/openapi.yml }
+
+# The provider golden masters: the platform packages `golden-masters/` as
+# `eu.wohlben.qits:qits-network-access-golden-masters` (the CLI's pacts read it) and
+# `@qits/network-access-golden-masters` (the landing app's), each published only when its content
+# changed. contracts/GoldenMasterRecordingTest records them.
+#
+# THE PACTS this service writes as a consumer, flat in `pacts/`:
+#   qits-idp-service     quarkus-oidc's discovery and JWKS reads, and the `qits` client's mint
+#                        (contracts/consumer/IdpPactTest, IdpTokenMintPactTest);
+#   qits-events-service  the outbox publish of PeerRegistered and PeerRevoked, through
+#                        qits-eventstream (EventstreamPactTest, from the library's kit).
+# The qits-system-service pact (the node join's registration check) arrives with that task.
+# The userflow catalogue (service/src/test/.../stories/**IT), published as @userflows/qits-network-access:
+# the java-service recipe's build-and-test step requires */target/userstories from the verify.
+userflows: qits-network-access
+
+contracts:
+  application: qits-network-access
+  golden-masters: { from: golden-masters/, packages: [maven, npm] }
+  # The entity exposure map EntityExposureTest keeps current.
+  entities: docs/entities.json
+  # The entity diagram `qits database diagram` writes, checked by the build-and-test step.
+  database: docs/database/
+  pacts:
+    qits-events-service: { packages: [maven] }
+    qits-idp-service: { packages: [maven] }

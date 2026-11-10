@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>eu.wohlben.qits</groupId>
+        <artifactId>qits-network-access</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <!-- The domain: na_node, na_peer and na_private_edge, their Flyway lineage, the tunnel address
+         allocation, the peer registry and the events it publishes in the write transaction. It owns
+         its own named datasource and persistence unit (META-INF/microprofile-config.properties).
+         Internal, not published: `service` builds it from source.
+
+         The directory is `domain/` while the artifactId is `qits-network-access-domain`: generic
+         coordinates would collide in the shared ~/.m2 every workspace container mounts. -->
+    <artifactId>qits-network-access-domain</artifactId>
+    <name>qits-network-access :: domain</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-orm-panache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Flyway 10 split its database support out of the core. -->
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <!-- PatientPgDriver, named by the datasource block as a string, and the @Technical /
+                 @Projection exposure markers. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-db-core</artifactId>
+        </dependency>
+        <dependency>
+            <!-- QitsEventBus, which the registry publishes PeerRegistered and PeerRevoked through
+                 in the same transaction as the row, and @Uncaused for the entities. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-eventstream</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Pure unit tests only (the address arithmetic, the config render, the validation):
+                 every database-backed test lives in `service`, whose test classpath carries the
+                 embedded postgres. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <!-- The consuming Quarkus app needs an index of this jar's beans and entities. -->
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

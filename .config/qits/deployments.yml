@@ -1,0 +1,38 @@
+# How qits-deployments deploys this repository. It reads this file from the git host at the built
+# sha, so the answer travels with the commit; carrying the file at all is what says it deploys.
+#
+# THE DEPLOYED IDENTITY, named rather than derived from the repository: the application
+# qits-network-access (wire alias dev-qits-network-access), its image qits/qits-network-access, its
+# databases and its idp client all carry this name. Changing it later is a decommission plus a new
+# application, so it does not change.
+application: qits-network-access
+
+# https://network-access.qits.<domain>/network-access: the API at /network-access/api, health and the
+# API document at /network-access/q.
+host: network-access
+routes: /network-access
+
+# NO `exposure:` KEY, AND THAT IS THE DECISION, NOT AN OMISSION. Without one the deployment is
+# `public`: reached through the public edge, never only through the private one. This service is
+# the place that grants access to the private edge, so it must survive a private-edge fault — a
+# person whose tunnel is broken has to be able to reach it to repair the tunnel (owner ruling, see
+# the epic's design page `design-names-and-values`). Every door still takes a bearer.
+#
+# NO `navigation-entries:` either: the management pane lives in qits-landing-app (route
+# /network-access), whose own menu links it; the landing app does not read /main-navigation.
+
+# The probe the deploy gates on: readiness, which is red while either database is unreachable.
+health_path: /network-access/q/health/ready
+
+# Where the browsable API document lives.
+api-docs: /network-access/q/swagger-ui
+
+# TWO DATABASES AND A SERVICE CLIENT.
+#   db           qits_network_access: na_node, na_peer, na_private_edge (domain's Flyway lineage).
+#   eventstream  qits_network_access_eventstream: the qits-eventstream outbox. The resource NAME is
+#                load-bearing — the jar reads QITS_RESOURCE_EVENTSTREAM_* — and the database is
+#                named because the default is derived from the application and would collide.
+#   idp:client   this application's own qits-idp service client, `<env>-qits-network-access`: the
+#                bearer the eventstream library and the telemetry exporters present, and the one the
+#                node join will ask qits-system's registration-check door with (section 5).
+resources: postgresql:db:qits_network_access, postgresql:eventstream:qits_network_access_eventstream, idp:client

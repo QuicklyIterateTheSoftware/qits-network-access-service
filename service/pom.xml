@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>eu.wohlben.qits</groupId>
+        <artifactId>qits-network-access</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <!-- The deployable: the REST surface under /network-access/api. -->
+    <artifactId>qits-network-access-service</artifactId>
+    <name>qits-network-access :: service</name>
+    <packaging>quarkus</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-network-access-domain</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+        <dependency>
+            <!-- /network-access/q/health/ready, with a readiness check per datasource. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-eventstream</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-auth-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-http-core</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Bearer validation against qits-idp. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc</artifactId>
+        </dependency>
+        <dependency>
+            <!-- The token this service PRESENTS: the named client `qits` (the idp:client resource),
+                 spent by qits-eventstream and qits-telemetry-core today, and by the qits-system
+                 registration check of the node join (section 5) later. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-opentelemetry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-telemetry-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- @TestSecurity: each suite states who is calling. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-test-security</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- CausationRowRules, HttpClientRules, DatasourceBaselineRules, DeskAdminParityRules,
+                 EntityExposureRules and ProviderStateCoverageRules. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-arch-rules</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- The userflow catalogue: browserless @UserStory ITs whose reports, network diagrams
+                 included, are written under target/userstories/. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-userflows</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- idp.MockIdp: discovery, JWKS and token minting for the packaged ITs. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-service-mock</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- EventstreamPactTest: what qits-eventstream asks qits-events on this service's
+                 behalf (the outbox publish). -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-eventstream-contracts</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- ConsumerPactVerificationTest: verifies the consumer pacts this provider pins (none
+                 yet: the landing app's and the CLI's arrive with their tasks). -->
+            <groupId>au.com.dius.pact.provider</groupId>
+            <artifactId>junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- The consumer pacts against qits-idp-service (contracts/consumer/IdpPactTest). -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-pact-consumer</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>au.com.dius.pact.consumer</groupId>
+            <artifactId>junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-idp-golden-masters</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- The store every @QuarkusTest here boots against: real postgres binaries, spawned
+                 as a child process. -->
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-linux-amd64</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-linux-arm64v8</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- The musl build, for the platform's own CI (Alpine step containers). -->
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-linux-amd64-alpine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <extensions>true</extensions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- quarkus.package.output-name, spelled again: the two move together. -->
+                        <native.image.path>${project.build.directory}/qits-network-access</native.image.path>
+                        <quarkus.http.test-port>0</quarkus.http.test-port>
+                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                    </systemPropertyVariables>
+                    <environmentVariables>
+                        <QITS_DOMAIN>wohlben.eu</QITS_DOMAIN>
+                    </environmentVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- GraalVM native build: `-Dnative`. -->
+        <profile>
+            <id>native</id>
+            <activation>
+                <property>
+                    <name>native</name>
+                </property>
+            </activation>
+            <properties>
+                <quarkus.package.jar.enabled>false</quarkus.package.jar.enabled>
+                <skipITs>false</skipITs>
+                <quarkus.native.enabled>true</quarkus.native.enabled>
+            </properties>
+        </profile>
+    </profiles>
+</project>
