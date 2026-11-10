@@ -17,6 +17,12 @@ public final class NetworkAccessWire {
   /** {@code POST /peers}: a device's name and the public key it generated itself. */
   public record CreatePeerRequest(String name, String publicKey) {}
 
+  /**
+   * {@code POST /nodes/{targetId}/join}: the node's name (its host name; qits-system's target name
+   * wins when the registration check answers one) and the public key it generated itself.
+   */
+  public record JoinNodeRequest(String name, String publicKey) {}
+
   /** One peer. {@code ownerUserId} is set for a DEVICE, {@code targetId} for a NODE. */
   public record PeerDto(
       UUID id,

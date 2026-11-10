@@ -6,12 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.wohlben.qits.networkaccess.events.PeerRegistered;
 import eu.wohlben.qits.networkaccess.events.PeerRevoked;
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import eu.wohlben.qits.networkaccess.bus.PrivateEdgeAnnouncedListener;
+import eu.wohlben.qits.networkaccess.bus.TargetDeletedListener;
+import eu.wohlben.qits.networkaccess.bus.UserDeletedListener;
+import eu.wohlben.qits.networkaccess.system.SystemTargets;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link ApiWireReflection} is complete: every nested type of {@link NetworkAccessWire}, and both
- * events. On a JVM everything binds regardless; the failure this guards is a 500 in the native
+ * {@link ApiWireReflection} is complete: every nested type of {@link NetworkAccessWire}, both
+ * events, the consumers' payloads and the qits-system client's records. On a JVM everything binds regardless; the failure this guards is a 500 in the native
  * binary, so the only way to catch it early is the commit that forgets the list.
  */
 class ApiWireReflectionTest {
@@ -31,5 +36,22 @@ class ApiWireReflectionTest {
     }
     assertTrue(registered.contains(PeerRegistered.class));
     assertTrue(registered.contains(PeerRevoked.class));
+    for (Class<?> owner :
+        List.of(
+            PrivateEdgeAnnouncedListener.class,
+            UserDeletedListener.class,
+            TargetDeletedListener.class,
+            SystemTargets.class)) {
+      for (Class<?> type : owner.getDeclaredClasses()) {
+        if (type.isRecord()) {
+          assertTrue(
+              registered.contains(type),
+              owner.getSimpleName()
+                  + "."
+                  + type.getSimpleName()
+                  + " is bound by reflection and not in ApiWireReflection");
+        }
+      }
+    }
   }
 }

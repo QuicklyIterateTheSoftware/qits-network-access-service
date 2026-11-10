@@ -32,12 +32,16 @@ public class ProviderStates {
 
   public static final String A_JOINED_NODE = "a joined node";
 
+  public static final String A_TARGET_TO_JOIN = "a target to join behind an announced private edge";
+
   /** Who the recordings call as, and who owns the staged device: the operator's own {@code sub}. */
   public static final String OPERATOR = "operator";
 
   static final UUID DEVICE_PEER = UUID.fromString("0e6b4f39-6f0e-4a55-9a1e-0c3a1e7c2a11");
 
   static final UUID NODE_TARGET = UUID.fromString("4f2d9c71-8a3e-4b5f-9d6c-7e8f9a0b1c2d");
+
+  static final UUID JOINING_TARGET = UUID.fromString("6e5d4c3b-2a19-4f8e-b7d6-c5b4a3928170");
 
   static final UUID NODE_PEER = UUID.fromString("9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d");
 
@@ -56,6 +60,7 @@ public class ProviderStates {
     states.put(AN_ANNOUNCED_PRIVATE_EDGE, this::anAnnouncedPrivateEdge);
     states.put(A_DEVICE_PEER, this::aDevicePeer);
     states.put(A_JOINED_NODE, this::aJoinedNode);
+    states.put(A_TARGET_TO_JOIN, this::aTargetToJoin);
   }
 
   public Set<String> names() {
@@ -109,6 +114,18 @@ public class ProviderStates {
     Map<String, String> params = new TreeMap<>();
     params.put("peerId", NODE_PEER.toString());
     params.put("targetId", NODE_TARGET.toString());
+    return new Setup(Collections.unmodifiableMap(params));
+  }
+
+  /**
+   * The target {@code targetId} has not joined yet, behind the announced edge: its join registers
+   * its first NODE peer at the lowest free address.
+   */
+  private Setup aTargetToJoin() {
+    fixtures.clear();
+    fixtures.edge();
+    Map<String, String> params = new TreeMap<>();
+    params.put("targetId", JOINING_TARGET.toString());
     return new Setup(Collections.unmodifiableMap(params));
   }
 }

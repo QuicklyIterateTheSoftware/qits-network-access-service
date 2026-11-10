@@ -8,6 +8,222 @@
         "references": {
           "qits-call": {
             "app": "qits-events-service",
+            "operationId": "listEvents"
+          },
+          "qits-trigger": {
+            "app": "qits-network-access-service",
+            "kind": "schedule",
+            "schedule": "CatchupSweeper.catchUp(network-access-private-edge)"
+          },
+          "qits-via": {
+            "artifact": "eu.wohlben.qits:qits-eventstream",
+            "repository": "qits-eventstream-javalib",
+            "version": "2026.1109.164031"
+          }
+        }
+      },
+      "description": "CatchupSweeper.catchUp(network-access-private-edge): listEvents (one name)",
+      "key": "3ca25686",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "no events"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/events/api/events",
+        "query": {
+          "limit": [
+            "200"
+          ],
+          "name": [
+            "PrivateEdgeAnnounced"
+          ],
+          "order": [
+            "asc"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "events": []
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json.*"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "references": {
+          "qits-call": {
+            "app": "qits-events-service",
+            "operationId": "listEvents"
+          },
+          "qits-trigger": {
+            "app": "qits-network-access-service",
+            "kind": "schedule",
+            "schedule": "CatchupSweeper.catchUp(network-access-target-deleted)"
+          },
+          "qits-via": {
+            "artifact": "eu.wohlben.qits:qits-eventstream",
+            "repository": "qits-eventstream-javalib",
+            "version": "2026.1109.164031"
+          }
+        }
+      },
+      "description": "CatchupSweeper.catchUp(network-access-target-deleted): listEvents (one name)",
+      "key": "e852b9b8",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "no events"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/events/api/events",
+        "query": {
+          "limit": [
+            "200"
+          ],
+          "name": [
+            "TargetDeleted"
+          ],
+          "order": [
+            "asc"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "events": []
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json.*"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "references": {
+          "qits-call": {
+            "app": "qits-events-service",
+            "operationId": "listEvents"
+          },
+          "qits-trigger": {
+            "app": "qits-network-access-service",
+            "kind": "schedule",
+            "schedule": "CatchupSweeper.catchUp(network-access-user-deleted)"
+          },
+          "qits-via": {
+            "artifact": "eu.wohlben.qits:qits-eventstream",
+            "repository": "qits-eventstream-javalib",
+            "version": "2026.1109.164031"
+          }
+        }
+      },
+      "description": "CatchupSweeper.catchUp(network-access-user-deleted): listEvents (one name)",
+      "key": "3965e9f6",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "no events"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/events/api/events",
+        "query": {
+          "limit": [
+            "200"
+          ],
+          "name": [
+            "UserDeleted"
+          ],
+          "order": [
+            "asc"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "events": []
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json.*"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "references": {
+          "qits-call": {
+            "app": "qits-events-service",
             "operationId": "publishEvent"
           },
           "qits-trigger": {

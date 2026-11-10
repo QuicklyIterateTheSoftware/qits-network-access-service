@@ -116,4 +116,9 @@ class ConsumerPactVerificationTest {
   Map<String, String> aJoinedNode() {
     return states.params(ProviderStates.A_JOINED_NODE);
   }
+
+  @State(ProviderStates.A_TARGET_TO_JOIN)
+  Map<String, String> aTargetToJoin() {
+    return states.params(ProviderStates.A_TARGET_TO_JOIN);
+  }
 }

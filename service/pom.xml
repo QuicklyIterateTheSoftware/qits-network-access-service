@@ -55,10 +55,16 @@
         </dependency>
         <dependency>
             <!-- The token this service PRESENTS: the named client `qits` (the idp:client resource),
-                 spent by qits-eventstream and qits-telemetry-core today, and by the qits-system
-                 registration check of the node join (section 5) later. -->
+                 spent by qits-eventstream and qits-telemetry-core, and by the qits-system
+                 registration check of the node join (system/SystemBearer). -->
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-oidc-client</artifactId>
+        </dependency>
+        <dependency>
+            <!-- The MicroProfile REST client of qits-system's registration-check door (the node
+                 join, system/SystemTargets), with the `qits` client's bearer. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-client-jackson</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>

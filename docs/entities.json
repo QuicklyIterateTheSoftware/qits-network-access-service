@@ -98,7 +98,7 @@
           "type" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$TunnelDto",
           "kind" : "assembler",
           "via" : null,
-          "site" : "PeersResource.tunnel(UUID)"
+          "site" : "NodesResource.join(UUID, JoinNodeRequest)"
         }
       ],
       "operations" : [
@@ -142,6 +142,13 @@
           "method" : "GET",
           "path" : "/peers",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "joinNode",
+          "method" : "POST",
+          "path" : "/nodes/{targetId}/join",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
           "kind" : "returns"
         },
         {
@@ -193,6 +200,13 @@
           "method" : "GET",
           "path" : "/private-edge",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PrivateEdgeDto",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "joinNode",
+          "method" : "POST",
+          "path" : "/nodes/{targetId}/join",
+          "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
           "kind" : "returns"
         }
       ]

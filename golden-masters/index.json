@@ -148,6 +148,35 @@
       ]
     },
     {
+      "name": "a target to join behind an announced private edge",
+      "slug": "a-target-to-join-behind-an-announced-private-edge",
+      "params": {
+        "targetId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "joinNode",
+          "method": "POST",
+          "path": "/network-access/api/nodes/{targetId}/join",
+          "body": {
+            "name": "node-b",
+            "publicKey": "AAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc="
+          },
+          "status": 200,
+          "file": "a-target-to-join-behind-an-announced-private-edge/joinNode.json",
+          "frozen": {
+            "ids": [
+              "$.peerId"
+            ],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "an announced private edge",
       "slug": "an-announced-private-edge",
       "params": {
@@ -182,6 +211,19 @@
           "path": "/network-access/api/companion",
           "status": 200,
           "file": "an-announced-private-edge/getCompanion.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getNodeTunnel",
+          "method": "GET",
+          "path": "/network-access/api/nodes/qits-node-tunnel",
+          "status": 200,
+          "file": "an-announced-private-edge/getNodeTunnel.json",
           "frozen": {
             "ids": [],
             "instants": [],

@@ -1,0 +1,145 @@
+{
+  "consumer": {
+    "name": "qits-network-access-service"
+  },
+  "interactions": [
+    {
+      "comments": {
+        "references": {
+          "qits-call": {
+            "app": "qits-system-service",
+            "operationId": "checkTargetRegistration"
+          },
+          "qits-trigger": {
+            "app": "qits-network-access-service",
+            "kind": "operation",
+            "operationId": "joinNode"
+          }
+        }
+      },
+      "description": "joinNode: checkTargetRegistration",
+      "key": "7316ddd",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "target 00000000-0000-4000-8000-000000000001 has registration subject contract-registration-subject",
+          "params": {
+            "authorization": "Bearer qits_tok_contract-qits-network-access",
+            "subject": "contract-registration-subject",
+            "targetId": "00000000-0000-4000-8000-000000000001"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "subject": "contract-registration-subject"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.subject": {
+              "dataType": "STRING",
+              "expression": "${subject}",
+              "type": "ProviderState"
+            }
+          },
+          "header": {
+            "Authorization": {
+              "dataType": "RAW",
+              "expression": "${authorization}",
+              "type": "ProviderState"
+            }
+          },
+          "path": {
+            "dataType": "RAW",
+            "expression": "/system/api/targets/${targetId}/registration-check",
+            "type": "ProviderState"
+          }
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer qits_tok_contract-qits-network-access"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.subject": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/system/api/targets/00000000-0000-4000-8000-000000000001/registration-check"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "targetId": "00000000-0000-4000-8000-000000000001",
+            "targetName": "lab"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.targetId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.targetName": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json.*"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "4.0"
+    },
+    "plugins": []
+  },
+  "provider": {
+    "name": "qits-system-service"
+  }
+}

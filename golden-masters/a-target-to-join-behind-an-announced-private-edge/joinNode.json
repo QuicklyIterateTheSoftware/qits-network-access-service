@@ -1,0 +1,13 @@
+{
+  "peerId": "00000000-0000-4000-8000-000000000002",
+  "tunnelIp": "100.96.0.10",
+  "edge": {
+    "publicKey": "AAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc=",
+    "publicAddress": "46.224.171.33",
+    "listenPort": 47812,
+    "dnsAddress": "100.96.0.1",
+    "tunnelCidr": "100.96.0.0/24",
+    "mtu": 1380,
+    "domain": "wohlben.eu"
+  }
+}

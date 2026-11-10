@@ -42,6 +42,13 @@ components:
       format: date-time
       examples:
       - 2022-03-10T16:15:50Z
+    JoinNodeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        publicKey:
+          type: string
     NodeDto:
       type: object
       properties:
@@ -182,6 +189,32 @@ paths:
         - qits:desk
         - qits:agent
         - qits:system
+  /network-access/api/nodes/qits-node-tunnel:
+    get:
+      summary: The static qits-node-tunnel helper a node's install line runs to join
+      operationId: getNodeTunnel
+      responses:
+        "200":
+          description: The binary
+          content:
+            application/octet-stream: {}
+        "404":
+          description: This image carries no helper
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      tags:
+      - Nodes Resource
+      security:
+      - SecurityScheme:
+        - qits:admin
+        - qits:admin-agent
+        - qits:desk-admin
+        - qits:desk
+        - qits:agent
+        - qits:system
+        - qits:target-runner-registration
   /network-access/api/nodes/{targetId}:
     get:
       summary: "One joined node, with its active peer"
@@ -215,6 +248,51 @@ paths:
         - qits:desk
         - qits:agent
         - qits:system
+  /network-access/api/nodes/{targetId}/join:
+    post:
+      summary: "Join a qits-system target as a node: register its peer, or answer\
+        \ the one it has under this key"
+      operationId: joinNode
+      parameters:
+      - name: targetId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinNodeRequest"
+        required: true
+      responses:
+        "200":
+          description: The node's tunnel parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TunnelDto"
+        "400":
+          description: A bad name or public key
+        "403":
+          description: A registration token that is not this target's
+        "409":
+          description: "No private edge has announced itself, a key another active\
+            \ peer holds, or a full pool"
+        "503":
+          description: qits-system could not be asked
+        "401":
+          description: Not Authorized
+      tags:
+      - Nodes Resource
+      security:
+      - SecurityScheme:
+        - qits:admin
+        - qits:admin-agent
+        - qits:desk-admin
+        - qits:desk
+        - qits:system
+        - qits:target-runner-registration
   /network-access/api/peers:
     get:
       summary: "The peers, newest first"

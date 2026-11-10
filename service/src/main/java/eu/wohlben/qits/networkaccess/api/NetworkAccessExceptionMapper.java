@@ -7,7 +7,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
-/** The domain's refusals as 400, 404 and 409, each with an {@link ErrorBody}. */
+/** The domain's refusals as 400, 403, 404, 409 and 503, each with an {@link ErrorBody}. */
 @Provider
 public class NetworkAccessExceptionMapper implements ExceptionMapper<NetworkAccessException> {
 
@@ -16,8 +16,10 @@ public class NetworkAccessExceptionMapper implements ExceptionMapper<NetworkAcce
     Response.Status status =
         switch (refusal.kind()) {
           case BAD_REQUEST -> Response.Status.BAD_REQUEST;
+          case FORBIDDEN -> Response.Status.FORBIDDEN;
           case NOT_FOUND -> Response.Status.NOT_FOUND;
           case CONFLICT -> Response.Status.CONFLICT;
+          case UNAVAILABLE -> Response.Status.SERVICE_UNAVAILABLE;
         };
     return Response.status(status)
         .type(MediaType.APPLICATION_JSON)

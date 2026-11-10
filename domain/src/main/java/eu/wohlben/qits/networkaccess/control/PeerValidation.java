@@ -18,6 +18,11 @@ public final class PeerValidation {
 
   private PeerValidation() {}
 
+  /** Whether {@code name} is a DNS label, without refusing it. */
+  public static boolean isName(String name) {
+    return name != null && NAME.matcher(name).matches();
+  }
+
   /** The name, or a 400 naming the rule. */
   public static String name(String name) {
     if (name == null || !NAME.matcher(name).matches()) {

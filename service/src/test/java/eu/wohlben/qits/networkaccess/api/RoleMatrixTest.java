@@ -17,8 +17,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The design page's role matrix, door by door: no door answers an anonymous caller (401), every
- * read admits {@code qits:agent}, the two writes refuse it (403) and admit each role of the write
- * set. Each test names exactly one role, so the identity holds that role and nothing else.
+ * read admits {@code qits:agent}, the three writes (add a device, revoke, join a node) refuse it
+ * (403) and admit each role of the write set. The registration token's two doors are in {@code
+ * NodeJoinTest}. Each test names exactly one role, so the identity holds that role and nothing else.
  */
 @QuarkusTest
 class RoleMatrixTest {
@@ -29,6 +30,11 @@ class RoleMatrixTest {
 
   static final UUID TARGET = UUID.fromString("8b9c0d1e-2f3a-4b4c-8d5e-6f7a8b9c0d1e");
 
+  /** A target that has not joined: the write set's join of it registers its first peer. */
+  static final UUID NEW_TARGET = UUID.fromString("1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f");
+
+  static final String JOIN = API + "/nodes/" + NEW_TARGET + "/join";
+
   /** Every read door, as method and path. */
   static final List<String[]> READS =
       List.of(
@@ -38,6 +44,7 @@ class RoleMatrixTest {
           new String[] {"GET", API + "/peers/" + PEER + "/tunnel"},
           new String[] {"GET", API + "/nodes"},
           new String[] {"GET", API + "/nodes/" + TARGET},
+          new String[] {"GET", API + "/nodes/qits-node-tunnel"},
           new String[] {"GET", API + "/companion"},
           new String[] {"GET", API + "/private-edge"});
 
@@ -64,6 +71,12 @@ class RoleMatrixTest {
         .then()
         .statusCode(401);
     given().post(API + "/peers/" + PEER + "/revoke").then().statusCode(401);
+    given()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "node-b", "publicKey", Fixtures.key(10)))
+        .post(JOIN)
+        .then()
+        .statusCode(401);
   }
 
   @Test
@@ -76,7 +89,7 @@ class RoleMatrixTest {
 
   @Test
   @TestSecurity(user = "an-agent", roles = "qits:agent")
-  void theAgentIsRefusedBothWrites() {
+  void theAgentIsRefusedEveryWrite() {
     given()
         .contentType(ContentType.JSON)
         .body(Map.of("name", "x", "publicKey", Fixtures.key(9)))
@@ -84,6 +97,12 @@ class RoleMatrixTest {
         .then()
         .statusCode(403);
     given().post(API + "/peers/" + PEER + "/revoke").then().statusCode(403);
+    given()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "node-b", "publicKey", Fixtures.key(10)))
+        .post(JOIN)
+        .then()
+        .statusCode(403);
   }
 
   @Test
@@ -92,6 +111,12 @@ class RoleMatrixTest {
     for (String[] door : READS) {
       given().request(door[0], door[1]).then().statusCode(403);
     }
+    given()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "node-b", "publicKey", Fixtures.key(10)))
+        .post(JOIN)
+        .then()
+        .statusCode(403);
   }
 
   @Test
@@ -132,6 +157,13 @@ class RoleMatrixTest {
         .then()
         .statusCode(201);
     given().post(API + "/peers/" + PEER + "/revoke").then().statusCode(200);
+    // The write set joins without asking qits-system (an operator's repair).
+    given()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "node-b", "publicKey", Fixtures.key(10)))
+        .post(JOIN)
+        .then()
+        .statusCode(200);
     // Reads stay open to the write set too.
     given().get(API + "/peers").then().statusCode(not(oneOf(401, 403)));
   }

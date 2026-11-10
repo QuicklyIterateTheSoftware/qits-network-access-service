@@ -55,6 +55,8 @@ public class PeerRegistry {
 
   private static final String ADDRESS_INDEX = "na_peer_active_tunnel_ip";
 
+  private static final String NODE_INDEX = "na_peer_active_node";
+
   @Inject PeerAddresses addresses;
 
   @Inject QitsEventBus bus;
@@ -206,14 +208,161 @@ public class PeerRegistry {
     if (peer.status == PeerStatus.REVOKED) {
       return peer;
     }
-    peer.status = PeerStatus.REVOKED;
-    peer.revokedAt = now();
-    peer.revokedBy = caller;
-    peer.revokeReason = reason;
+    markRevoked(peer, caller, reason);
     NaPeer.flush();
     bus.publish(revoked(peer));
     LOG.infof("%s revoked the peer %s (%s)", caller, peer.id, reason);
     return peer;
+  }
+
+  /**
+   * A target joins as a node (section 5 of the design): the node row is upserted under {@code
+   * name}, and then
+   *
+   * <ul>
+   *   <li>an ACTIVE peer of this node with this very key is answered unchanged — a re-run of the
+   *       install line is idempotent;
+   *   <li>otherwise the node's ACTIVE peer, if any, is revoked {@code REPLACED} (its {@code
+   *       PeerRevoked} published first) and a new NODE peer is registered, keeping the node's last
+   *       tunnel address when no ACTIVE peer holds it, else at the lowest free one.
+   * </ul>
+   *
+   * <p>400 for a bad name or key, 409 for a key another ACTIVE peer holds or a full pool. Must be
+   * called outside a transaction: each attempt runs in its own, and a concurrent join of the same
+   * node or a race for an address is retried.
+   */
+  public NaPeer joinNode(UUID targetId, String name, String publicKey, String caller) {
+    String validName = PeerValidation.name(name);
+    String validKey = PeerValidation.publicKey(publicKey);
+    for (int attempt = 1; ; attempt++) {
+      try {
+        NaPeer peer =
+            QuarkusTransaction.requiringNew()
+                .call(() -> insertNode(targetId, validName, validKey, caller));
+        LOG.infof("%s joined the node %s as peer %s at %s", caller, targetId, peer.id, peer.tunnelIp);
+        return peer;
+      } catch (RuntimeException e) {
+        String constraint = violatedConstraint(e);
+        if (constraint == null) {
+          throw e;
+        }
+        if ("na_peer_active_public_key".equals(constraint)) {
+          throw NetworkAccessException.conflict(DUPLICATE_KEY);
+        }
+        boolean race = ADDRESS_INDEX.equals(constraint) || NODE_INDEX.equals(constraint);
+        if (!race || attempt >= ATTEMPTS) {
+          throw e;
+        }
+        LOG.debugf("node join race on %s, attempt %d; retrying", constraint, attempt);
+      }
+    }
+  }
+
+  private NaPeer insertNode(UUID targetId, String name, String publicKey, String caller) {
+    Instant now = now();
+    NaNode node = NaNode.findById(targetId);
+    if (node == null) {
+      node = new NaNode();
+      node.targetId = targetId;
+      node.createdAt = now;
+      node.name = name;
+      node.lastJoinedAt = now;
+      node.persist();
+    } else {
+      node.name = name;
+      node.lastJoinedAt = now;
+      // A join is the node's own proof of life: an admin's repair join brings it back.
+      node.deletedAt = null;
+    }
+    Optional<NaPeer> active = activePeerOf(targetId);
+    if (active.isPresent() && active.get().publicKey.equals(publicKey)) {
+      return active.get();
+    }
+    if (NaPeer.count("publicKey = ?1 and status = ?2", publicKey, PeerStatus.ACTIVE) > 0) {
+      throw NetworkAccessException.conflict(DUPLICATE_KEY);
+    }
+    String kept = null;
+    if (active.isPresent()) {
+      NaPeer old = active.get();
+      kept = old.tunnelIp;
+      markRevoked(old, caller, RevokeReason.REPLACED);
+      NaPeer.flush();
+      bus.publish(revoked(old));
+      LOG.infof("%s replaced the node %s's peer %s (REPLACED)", caller, targetId, old.id);
+    } else {
+      kept =
+          NaPeer.<NaPeer>find(
+                  "targetId = ?1 and kind = ?2",
+                  Sort.descending("createdAt").and("id"),
+                  targetId,
+                  PeerKind.NODE)
+              .firstResultOptional()
+              .map(previous -> previous.tunnelIp)
+              .orElse(null);
+    }
+    NaPeer peer = new NaPeer();
+    peer.id = UUID.randomUUID();
+    peer.kind = PeerKind.NODE;
+    peer.name = name;
+    peer.publicKey = publicKey;
+    peer.tunnelIp = keepable(kept) ? kept : addresses.next();
+    peer.targetId = targetId;
+    peer.status = PeerStatus.ACTIVE;
+    peer.createdAt = now;
+    peer.createdBy = caller;
+    peer.persist();
+    NaPeer.flush();
+    bus.publish(registered(peer));
+    return peer;
+  }
+
+  /** Whether a node's previous address may be handed to its new peer: in the pool and free. */
+  private boolean keepable(String address) {
+    return address != null
+        && addresses.allocatable(address)
+        && NaPeer.count("tunnelIp = ?1 and status = ?2", address, PeerStatus.ACTIVE) == 0;
+  }
+
+  /**
+   * {@code UserDeleted}: every ACTIVE DEVICE peer {@code owner} holds is revoked {@code
+   * USER_DELETED} by {@code by}. Idempotent — a replay finds nothing ACTIVE and publishes nothing.
+   *
+   * @return how many peers this call revoked
+   */
+  @Transactional
+  public int revokeDevicesOf(String owner, String by) {
+    List<NaPeer> peers =
+        NaPeer.<NaPeer>find(
+                "ownerUserId = ?1 and kind = ?2 and status = ?3",
+                Sort.ascending("createdAt").and("id"),
+                owner,
+                PeerKind.DEVICE,
+                PeerStatus.ACTIVE)
+            .list();
+    for (NaPeer peer : peers) {
+      revoke(peer.id, by, RevokeReason.USER_DELETED);
+    }
+    return peers.size();
+  }
+
+  /**
+   * {@code TargetDeleted}: the node's ACTIVE peer is revoked {@code NODE_DELETED} by {@code by},
+   * and the node is marked deleted (the first deletion's time is kept). A target that never joined
+   * has nothing here. Idempotent.
+   *
+   * @return whether the target is a node of this service
+   */
+  @Transactional
+  public boolean nodeDeleted(UUID targetId, String by) {
+    NaNode node = NaNode.findById(targetId);
+    if (node == null) {
+      return false;
+    }
+    if (node.deletedAt == null) {
+      node.deletedAt = now();
+    }
+    activePeerOf(targetId).ifPresent(peer -> revoke(peer.id, by, RevokeReason.NODE_DELETED));
+    return true;
   }
 
   // --- the events -----------------------------------------------------------------------------
@@ -241,6 +390,13 @@ public class PeerRegistry {
         peer.tunnelIp,
         peer.revokeReason.name(),
         peer.revokedAt);
+  }
+
+  private void markRevoked(NaPeer peer, String caller, RevokeReason reason) {
+    peer.status = PeerStatus.REVOKED;
+    peer.revokedAt = now();
+    peer.revokedBy = caller;
+    peer.revokeReason = reason;
   }
 
   private Instant now() {

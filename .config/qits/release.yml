@@ -24,9 +24,12 @@ artifacts:
 # THE PACTS this service writes as a consumer, flat in `pacts/`:
 #   qits-idp-service     quarkus-oidc's discovery and JWKS reads, and the `qits` client's mint
 #                        (contracts/consumer/IdpPactTest, IdpTokenMintPactTest);
-#   qits-events-service  the outbox publish of PeerRegistered and PeerRevoked, through
-#                        qits-eventstream (EventstreamPactTest, from the library's kit).
-# The qits-system-service pact (the node join's registration check) arrives with that task.
+#   qits-events-service  the outbox publish of PeerRegistered and PeerRevoked, and the catch-up
+#                        reads of the three durable consumers (PrivateEdgeAnnounced, UserDeleted,
+#                        TargetDeleted), through qits-eventstream (EventstreamPactTest, from the
+#                        library's kit);
+#   qits-system-service  the node join's registration check, checkTargetRegistration
+#                        (contracts/consumer/SystemPactTest).
 # The userflow catalogue (service/src/test/.../stories/**IT), published as @userflows/qits-network-access:
 # the java-service recipe's build-and-test step requires */target/userstories from the verify.
 userflows: qits-network-access
@@ -41,3 +44,4 @@ contracts:
   pacts:
     qits-events-service: { packages: [maven] }
     qits-idp-service: { packages: [maven] }
+    qits-system-service: { packages: [maven] }

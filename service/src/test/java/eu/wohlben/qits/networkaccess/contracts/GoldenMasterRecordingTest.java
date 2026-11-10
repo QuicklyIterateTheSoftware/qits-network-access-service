@@ -38,10 +38,12 @@ import org.junit.jupiter.api.Test;
  * ProviderStates}), calls the operation as the operator holding {@code qits:admin}, freezes ids and
  * instants ({@link Freezer}) and renders {@code golden-masters/<state-slug>/<operationId>.json}; then
  * {@code golden-masters/index.json} (format version 1). A {@code text/plain} answer (the config) is
- * recorded as one JSON string, as qits-system records its install script.
+ * recorded as one JSON string, as qits-system records its install script, and so is the node
+ * helper's {@code application/octet-stream}: the suite serves a short text stand-in for it.
  *
  * <p>The release gate fails any operation of {@code docs/openapi.yml} this table does not cover, so
- * a new door joins it in the same commit. {@code joinNode} arrives with the node join.
+ * a new door joins it in the same commit. {@code joinNode} is recorded as the operator, who skips
+ * the registration check, so the recording needs no qits-system.
  *
  * <p>It <b>compares by default</b> and fails with a unified diff per differing file, including a
  * committed {@code .json} no interaction produces any more; {@code -Dgolden.update=true} rewrites.
@@ -81,6 +83,20 @@ class GoldenMasterRecordingTest {
               "getCompanion",
               "GET",
               API + "/companion",
+              null,
+              200),
+          new Interaction(
+              ProviderStates.A_TARGET_TO_JOIN,
+              "joinNode",
+              "POST",
+              API + "/nodes/{targetId}/join",
+              "{\"name\":\"node-b\",\"publicKey\":\"" + Fixtures.key(5) + "\"}",
+              200),
+          new Interaction(
+              ProviderStates.AN_ANNOUNCED_PRIVATE_EDGE,
+              "getNodeTunnel",
+              "GET",
+              API + "/nodes/qits-node-tunnel",
               null,
               200),
           new Interaction(
@@ -215,7 +231,8 @@ class GoldenMasterRecordingTest {
       Interaction interaction, ProviderStates.Setup setup, Map<String, String> committedParams)
       throws IOException {
     Map<String, String> params = setup.params();
-    var request = given().header("Accept", "application/json, text/plain");
+    var request =
+        given().header("Accept", "application/json, text/plain, application/octet-stream");
     if (interaction.body() != null) {
       request = request.contentType("application/json").body(interaction.body());
     }
@@ -240,7 +257,7 @@ class GoldenMasterRecordingTest {
     JsonNode body;
     if (raw.isEmpty()) {
       body = JsonNodeFactory.instance.nullNode();
-    } else if (type.startsWith("text/")) {
+    } else if (type.startsWith("text/") || type.startsWith("application/octet-stream")) {
       body = TextNode.valueOf(raw);
     } else {
       body = JSON.readTree(raw);
