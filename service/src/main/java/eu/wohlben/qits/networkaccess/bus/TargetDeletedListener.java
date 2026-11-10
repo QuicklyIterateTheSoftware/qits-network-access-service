@@ -63,7 +63,7 @@ public class TargetDeletedListener implements QitsDurableEventListener {
       LOG.warnf("%s %s names no target id; it is settled unhandled", frame.name(), frame.id());
       return;
     }
-    if (registry.nodeDeleted(target, REVOKED_BY)) {
+    if (Frames.ownTransaction(() -> registry.nodeDeleted(target, REVOKED_BY))) {
       LOG.infof(
           "the node %s (%s) left the tunnel on %s %s",
           target, p.targetName(), frame.name(), frame.id());

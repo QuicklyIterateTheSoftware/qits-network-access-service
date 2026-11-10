@@ -65,7 +65,8 @@ public class UserDeletedListener implements QitsDurableEventListener {
       LOG.warnf("%s %s names no user id; it is settled unhandled", frame.name(), frame.id());
       return;
     }
-    int revoked = registry.revokeDevicesOf(user.toString(), REVOKED_BY);
+    int revoked =
+        Frames.ownTransaction(() -> registry.revokeDevicesOf(user.toString(), REVOKED_BY));
     if (revoked > 0) {
       LOG.infof(
           "revoked %d device peers of the deleted user %s (%s) on %s %s",

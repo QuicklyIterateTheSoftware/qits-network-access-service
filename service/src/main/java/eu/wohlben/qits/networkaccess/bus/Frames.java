@@ -2,7 +2,9 @@ package eu.wohlben.qits.networkaccess.bus;
 
 import eu.wohlben.qits.eventstream.control.CanonicalJson;
 import eu.wohlben.qits.eventstream.control.EventFrame;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
@@ -15,6 +17,16 @@ import org.jboss.logging.Logger;
  * <p>The payload carries neither {@code eventId} nor {@code occurredAt}: both ride the envelope, as
  * {@link EventFrame#id()} and {@link EventFrame#occurredAt()}. The library also omits null fields
  * and hides any field called {@code name}, so no DTO here reads one.
+ *
+ * <p><b>Every handler writes in a transaction of its own</b> ({@link #ownTransaction}). The library
+ * calls {@code onFrame} inside its claim transaction, whose {@code consumed_event} insert is on the
+ * {@code eventstream} datasource; this service's rows are on {@code networkaccess}, a different
+ * database. Both are non-XA, and Narayana admits one one-phase resource per transaction, so a
+ * handler write that JOINED the claim's transaction failed to enlist ("Exception in association of
+ * connection to existing transaction"), rolled the claim back and left the event owed for good
+ * (live on 2026.1110.191501). In its own transaction the effect commits first and the claim after
+ * it; a crash between the two re-delivers the event, which every handler here survives because it
+ * is idempotent — the same shape as qits-edge's projections ({@code REQUIRES_NEW}).
  */
 final class Frames {
 
@@ -30,6 +42,14 @@ final class Frames {
           frame.name(), frame.id(), unreadable.getMessage());
       return Optional.empty();
     }
+  }
+
+  /**
+   * Runs a handler's write in a new transaction, suspending the library's claim transaction around
+   * it; see the class comment.
+   */
+  static <T> T ownTransaction(Supplier<T> write) {
+    return QuarkusTransaction.requiringNew().call(write::get);
   }
 
   /** {@code value} as a UUID, or null when it is none. */

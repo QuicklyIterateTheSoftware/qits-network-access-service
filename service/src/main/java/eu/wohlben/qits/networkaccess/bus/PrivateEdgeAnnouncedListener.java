@@ -91,9 +91,8 @@ public class PrivateEdgeAnnouncedListener implements QitsDurableEventListener {
           frame.name(), frame.id());
       return;
     }
-    boolean stored =
-        edges.announce(
-            new Announcement(
+    Announcement announcement =
+        new Announcement(
                 p.application(),
                 p.publicKey(),
                 p.publicAddress(),
@@ -105,7 +104,8 @@ public class PrivateEdgeAnnouncedListener implements QitsDurableEventListener {
                 p.domain(),
                 // What timestamptz keeps, so a replay of the same frame compares equal.
                 frame.occurredAt().truncatedTo(ChronoUnit.MICROS),
-                event));
+                event);
+    boolean stored = Frames.ownTransaction(() -> edges.announce(announcement));
     if (!stored) {
       LOG.debugf(
           "%s %s is not newer than %s's stored announcement",
