@@ -23,7 +23,7 @@
          client). Exact versions, never ranges: qits-maintenance bumps each one. -->
     <groupId>eu.wohlben.qits</groupId>
     <artifactId>qits-network-access</artifactId>
-    <version>2026.1110.191501</version>
+    <version>2026.1110.201438</version>
     <packaging>pom</packaging>
     <name>qits-network-access</name>
 
