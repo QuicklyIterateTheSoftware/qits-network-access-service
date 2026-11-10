@@ -18,3 +18,8 @@ target-ide/
 .cache/
 .m2/
 .local/
+
+# Local environment and logs
+.env
+.env.local
+*.log
