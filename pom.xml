@@ -57,7 +57,7 @@
         <!-- The event bus client: PeerRegistered and PeerRevoked are published through it, and the
              consumers of section 4 (PrivateEdgeAnnounced, UserDeleted, TargetDeleted) will listen
              through it. qits-eventstream-contracts, its pact kit, always rides the same version. -->
-        <qits.eventstream.version>2026.1109.164031</qits.eventstream.version>
+        <qits.eventstream.version>2026.1110.232501</qits.eventstream.version>
         <!-- The consumer pacts against qits-idp-service (test scope): the shared golden-master
              reader and what qits-idp answers in each provider state. -->
         <!-- The user-story framework and the recording service mocks (test scope): the userflow
