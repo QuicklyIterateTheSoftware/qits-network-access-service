@@ -27,6 +27,12 @@ const (
 	unitName = "qits-node-tunnel"
 	unitPath = "/etc/systemd/system/qits-node-tunnel.service"
 	binPath  = "/usr/local/bin/qits-node-tunnel"
+
+	// tunDevicePath is opened to prove the host can bring up a TUN device before anything is
+	// registered. osreleasePath is read to tell a genuine no-systemd host from WSL, whose
+	// /etc/wsl.conf can turn systemd on without a reboot.
+	tunDevicePath = "/dev/net/tun"
+	osreleasePath = "/proc/sys/kernel/osrelease"
 )
 
 // joiner is the join with every side effect a field, so the tests run it against a temporary
@@ -41,8 +47,13 @@ type joiner struct {
 	systemctl func(args ...string) error
 	isActive  func(unit string) bool
 	hostname  func() (string, error)
-	stdout    io.Writer
-	stderr    io.Writer
+	// tunPath is where the TUN device is opened (/dev/net/tun in production); osreleasePath is
+	// read to spot WSL (/proc/sys/kernel/osrelease). Tests point both at temp files, the same way
+	// systemd is stubbed.
+	tunPath       string
+	osreleasePath string
+	stdout        io.Writer
+	stderr        io.Writer
 }
 
 func newJoiner(stdout, stderr io.Writer) *joiner {
@@ -59,9 +70,11 @@ func newJoiner(stdout, stderr io.Writer) *joiner {
 		isActive: func(unit string) bool {
 			return exec.Command("systemctl", "is-active", "--quiet", unit).Run() == nil
 		},
-		hostname: os.Hostname,
-		stdout:   stdout,
-		stderr:   stderr,
+		hostname:      os.Hostname,
+		tunPath:       tunDevicePath,
+		osreleasePath: osreleasePath,
+		stdout:        stdout,
+		stderr:        stderr,
 	}
 }
 
@@ -72,6 +85,26 @@ func hasSystemd() bool {
 	}
 	_, err := exec.LookPath("systemctl")
 	return err == nil
+}
+
+// checkTun proves the TUN device can actually be opened, before anything is registered: a peer
+// whose tunnel can never come up is worse than no peer at all.
+func (j *joiner) checkTun() error {
+	f, err := os.OpenFile(j.tunPath, os.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}
+
+// isWSL reports whether osreleasePath names a WSL kernel, whose systemd can be turned on in
+// /etc/wsl.conf without reinstalling anything. A missing or unreadable file is not WSL.
+func (j *joiner) isWSL() bool {
+	data, err := os.ReadFile(j.osreleasePath)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(data)), "microsoft")
 }
 
 type joinRequest struct {
@@ -111,8 +144,16 @@ func (j *joiner) join(args []string, env func(string) string) int {
 	}
 	// Before anything is registered: a peer nobody can bring up would only hold an address.
 	if !j.systemd() {
-		fmt.Fprintln(j.stderr, "this host does not run systemd, so qits-node-tunnel cannot keep the tunnel up")
+		message := "this host does not run systemd, so qits-node-tunnel cannot keep the tunnel up"
+		if j.isWSL() {
+			message += ` This is WSL: put "[boot]" and "systemd=true" in /etc/wsl.conf, run "wsl --shutdown" from Windows, reopen the distro and run the install line again.`
+		}
+		fmt.Fprintln(j.stderr, message)
 		return exitNoSystemd
+	}
+	if err := j.checkTun(); err != nil {
+		fmt.Fprintf(j.stderr, "qits-node-tunnel: this host has no usable /dev/net/tun (%s), so the tunnel cannot come up; nothing was registered. An LXC container needs the tun device passed through (lxc.cgroup2.devices.allow: c 10:200 rwm and lxc.mount.entry: /dev/net dev/net none bind,create=dir).\n", err)
+		return exitNoTun
 	}
 
 	private, created, err := keys.LoadOrCreate(filepath.Join(j.dir, "private.key"))

@@ -132,9 +132,11 @@ wireguard-go) built by `docker/Dockerfile`'s `access-client` stage into a static
 image carries at `/work/node-tunnel/qits-node-tunnel`:
 
 - `qits-node-tunnel join --url <base> --target <id> [--name <host>]`, as root, with the token in
-  `QITS_SYSTEM_RUNNER_REGISTRATION_TOKEN`: keeps its key in `/etc/qits/node-tunnel/private.key`,
-  joins, writes `tunnel.json` and the systemd unit `qits-node-tunnel.service`, and enables it. Exit
-  `0` joined, `2` usage, `3` refused or unreachable, `4` no systemd, `1` anything else.
+  `QITS_SYSTEM_RUNNER_REGISTRATION_TOKEN`: checks systemd and `/dev/net/tun`, keeps its key in
+  `/etc/qits/node-tunnel/private.key`, joins, writes `tunnel.json` and the systemd unit
+  `qits-node-tunnel.service`, and enables it. Exit `0` joined, `2` usage, `3` refused or unreachable,
+  `4` no systemd (the message names `/etc/wsl.conf` when the kernel is WSL's), `5` no usable
+  `/dev/net/tun` (nothing is registered), `1` anything else.
 - `qits-node-tunnel up` (the unit's `ExecStart`): TUN `qits0`, wireguard-go in-process, the address
   and the one route by netlink, split DNS with `resolvectl` when systemd-resolved runs.
 

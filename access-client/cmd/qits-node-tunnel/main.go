@@ -21,6 +21,7 @@ const (
 	exitUsage     = 2
 	exitRefused   = 3
 	exitNoSystemd = 4
+	exitNoTun     = 5
 )
 
 // stateDir is where the node keeps its private key and its tunnel answer.

@@ -43,16 +43,22 @@ func newHarness(t *testing.T, handler func(w http.ResponseWriter)) (*harness, st
 	}))
 	t.Cleanup(server.Close)
 	dir := t.TempDir()
+	tunPath := filepath.Join(dir, "tun")
+	if err := os.WriteFile(tunPath, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	h.j = &joiner{
-		dir:       filepath.Join(dir, "etc", "qits", "node-tunnel"),
-		unitPath:  filepath.Join(dir, "qits-node-tunnel.service"),
-		client:    server.Client(),
-		systemd:   func() bool { return true },
-		systemctl: func(args ...string) error { h.calls = append(h.calls, strings.Join(args, " ")); return nil },
-		isActive:  func(string) bool { return h.active },
-		hostname:  func() (string, error) { return "Node-7.example.org", nil },
-		stdout:    &h.stdout,
-		stderr:    &h.stderr,
+		dir:           filepath.Join(dir, "etc", "qits", "node-tunnel"),
+		unitPath:      filepath.Join(dir, "qits-node-tunnel.service"),
+		client:        server.Client(),
+		systemd:       func() bool { return true },
+		systemctl:     func(args ...string) error { h.calls = append(h.calls, strings.Join(args, " ")); return nil },
+		isActive:      func(string) bool { return h.active },
+		hostname:      func() (string, error) { return "Node-7.example.org", nil },
+		tunPath:       tunPath,
+		osreleasePath: filepath.Join(dir, "osrelease-absent"),
+		stdout:        &h.stdout,
+		stderr:        &h.stderr,
 	}
 	return h, server.URL + "/network-access"
 }
@@ -205,6 +211,57 @@ func TestNoSystemdIsExitFourBeforeAnythingIsRegistered(t *testing.T) {
 	}
 	if h.request != nil {
 		t.Fatal("a host without systemd registered a peer")
+	}
+}
+
+func TestNoSystemdOnWSLMentionsWslConf(t *testing.T) {
+	h, base := newHarness(t, ok)
+	h.j.systemd = func() bool { return false }
+	if err := os.WriteFile(h.j.osreleasePath, []byte("5.15.167.4-microsoft-standard-WSL2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := h.j.join([]string{"--url", base, "--target", target}, env("tok")); code != exitNoSystemd {
+		t.Fatalf("exit %d", code)
+	}
+	if !strings.Contains(h.stderr.String(), "wsl.conf") {
+		t.Fatalf("stderr %q, want it to mention wsl.conf", h.stderr.String())
+	}
+}
+
+func TestNoSystemdOnOtherKernelOmitsWslConf(t *testing.T) {
+	h, base := newHarness(t, ok)
+	h.j.systemd = func() bool { return false }
+	if err := os.WriteFile(h.j.osreleasePath, []byte("6.1.0-amd64\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := h.j.join([]string{"--url", base, "--target", target}, env("tok")); code != exitNoSystemd {
+		t.Fatalf("exit %d", code)
+	}
+	if strings.Contains(h.stderr.String(), "wsl.conf") {
+		t.Fatalf("stderr %q, want no mention of wsl.conf", h.stderr.String())
+	}
+}
+
+func TestNoTunIsExitFiveBeforeAnythingIsRegistered(t *testing.T) {
+	h, base := newHarness(t, ok)
+	h.j.tunPath = filepath.Join(t.TempDir(), "no-such-tun")
+	if code := h.j.join([]string{"--url", base, "--target", target}, env("tok")); code != exitNoTun {
+		t.Fatalf("exit %d: %s", code, h.stderr.String())
+	}
+	if h.request != nil {
+		t.Fatal("a host without a usable TUN device registered a peer")
+	}
+	if _, err := os.Stat(filepath.Join(h.j.dir, "private.key")); !os.IsNotExist(err) {
+		t.Fatal("a host without a usable TUN device wrote a private key")
+	}
+	if _, err := os.Stat(filepath.Join(h.j.dir, "tunnel.json")); !os.IsNotExist(err) {
+		t.Fatal("a host without a usable TUN device wrote tunnel.json")
+	}
+	if _, err := os.Stat(h.j.unitPath); !os.IsNotExist(err) {
+		t.Fatal("a host without a usable TUN device installed the unit")
+	}
+	if !strings.Contains(h.stderr.String(), "/dev/net/tun") || !strings.Contains(h.stderr.String(), "lxc.cgroup2.devices.allow") {
+		t.Fatalf("stderr %q", h.stderr.String())
 	}
 }
 
