@@ -73,7 +73,7 @@ func TestTheCompanionReachesAnInZoneNameThroughARealTunnel(t *testing.T) {
 	}
 	t.Cleanup(tun.Device.Close)
 	var logged strings.Builder
-	proxy, err := NewProxy(answer, endpoint, tun, log.New(&logged, "", 0))
+	proxy, err := NewProxy(answer, endpoint, tun, "127.0.0.1:47813", log.New(&logged, "", 0))
 	if err != nil {
 		t.Fatal(err)
 	}

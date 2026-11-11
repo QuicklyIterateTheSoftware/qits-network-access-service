@@ -12,6 +12,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -88,8 +90,10 @@ func (t *Tunnel) Handshake() (time.Time, error) {
 }
 
 // NewProxy is the companion's proxy over a running tunnel, dialling everything outside it from
-// the container's own network.
-func NewProxy(t tunnel.Tunnel, endpoint string, tun *Tunnel, logger *log.Logger) (*Proxy, error) {
+// the container's own network. advertise is the proxy's host-side address, already validated by
+// validateAdvertise: what /proxy.pac tells a browser to connect to, as opposed to listen, which is
+// where the proxy actually binds inside the container.
+func NewProxy(t tunnel.Tunnel, endpoint string, tun *Tunnel, advertise string, logger *log.Logger) (*Proxy, error) {
 	cidr, err := netip.ParsePrefix(t.Edge.TunnelCIDR)
 	if err != nil {
 		return nil, err
@@ -101,6 +105,7 @@ func NewProxy(t tunnel.Tunnel, endpoint string, tun *Tunnel, logger *log.Logger)
 		Endpoint:     endpoint,
 		Zone:         t.Edge.Domain,
 		TunnelCIDR:   cidr.Masked(),
+		Advertise:    advertise,
 		TunnelLookup: tun.Lookup,
 		TunnelDial:   tun.Net.DialContext,
 		DirectDial:   direct.DialContext,
@@ -110,8 +115,28 @@ func NewProxy(t tunnel.Tunnel, endpoint string, tun *Tunnel, logger *log.Logger)
 	}, nil
 }
 
+// validateAdvertise checks that advertise parses as host:port, with a non-empty host and a port in
+// range: what a browser's PAC PROXY entry needs, and the one check run.go can do before it ever
+// serves a request.
+func validateAdvertise(advertise string) error {
+	host, port, err := net.SplitHostPort(advertise)
+	if err != nil {
+		return fmt.Errorf("--advertise %q is not host:port: %w", advertise, err)
+	}
+	if strings.TrimSpace(host) == "" {
+		return fmt.Errorf("--advertise %q has no host", advertise)
+	}
+	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+		return fmt.Errorf("--advertise %q has no usable port", advertise)
+	}
+	return nil
+}
+
 // run is the container's long-running mode: the tunnel, then the proxy, until SIGTERM or SIGINT.
-func run(state, listen string, stderr io.Writer) error {
+func run(state, listen, advertise string, stderr io.Writer) error {
+	if err := validateAdvertise(advertise); err != nil {
+		return err
+	}
 	t, err := tunnel.Load(filepath.Join(state, "tunnel.json"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -139,7 +164,7 @@ func run(state, listen string, stderr io.Writer) error {
 	}
 	defer tun.Device.Close()
 
-	proxy, err := NewProxy(t, endpoint, tun, logger)
+	proxy, err := NewProxy(t, endpoint, tun, advertise, logger)
 	if err != nil {
 		return err
 	}
@@ -148,8 +173,8 @@ func run(state, listen string, stderr io.Writer) error {
 		return err
 	}
 	server := &http.Server{Handler: proxy, ReadHeaderTimeout: 10 * time.Second}
-	logger.Printf("peer %s at %s via %s; proxy on %s, %s resolved through %s",
-		t.PeerID, t.TunnelIP, endpoint, listener.Addr(), t.Edge.Domain, t.Edge.DNSAddress)
+	logger.Printf("peer %s at %s via %s; proxy on %s (advertised as %s), %s resolved through %s",
+		t.PeerID, t.TunnelIP, endpoint, listener.Addr(), advertise, t.Edge.Domain, t.Edge.DNSAddress)
 
 	served := make(chan error, 1)
 	go func() { served <- server.Serve(listener) }()

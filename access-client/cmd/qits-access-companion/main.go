@@ -13,7 +13,10 @@
 //
 //	keygen     create /state/private.key if absent; print the PUBLIC key (never the private one)
 //	configure  read the GET /peers/{id}/tunnel answer on stdin, validate it, write /state/tunnel.json
-//	run        bring the tunnel up and serve the proxy and GET /healthz on 0.0.0.0:47813
+//	run        bring the tunnel up and serve CONNECT, GET /healthz and GET/HEAD /proxy.pac on
+//	           0.0.0.0:47813; --advertise (or QITS_COMPANION_ADVERTISE) names the host-side address
+//	           of that port, the one a browser's PAC file is told to use, since 0.0.0.0:47813 means
+//	           nothing outside the container
 //
 // See README.md, "The companion".
 package main
@@ -42,6 +45,14 @@ const defaultState = "/state"
 // host side is loopback even though the container side is not.
 const defaultListen = "0.0.0.0:47813"
 
+// defaultAdvertise is the host side of the docker publish `-p 127.0.0.1:47813:47813`: what
+// /proxy.pac tells a browser to connect to. --advertise or QITS_COMPANION_ADVERTISE overrides it,
+// for a published port that differs or a companion reached some other way.
+const defaultAdvertise = "127.0.0.1:47813"
+
+// adviseEnv is the environment fallback for --advertise.
+const adviseEnv = "QITS_COMPANION_ADVERTISE"
+
 func main() {
 	os.Exit(dispatch(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
@@ -55,8 +66,14 @@ func dispatch(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	state := flags.String("state", defaultState, "the directory holding private.key and tunnel.json")
 	listen := defaultListen
+	advertise := defaultAdvertise
+	if v := os.Getenv(adviseEnv); v != "" {
+		advertise = v
+	}
 	if args[0] == "run" {
 		flags.StringVar(&listen, "listen", defaultListen, "the proxy's listen address")
+		flags.StringVar(&advertise, "advertise", advertise,
+			"the proxy's host-side address, named in /proxy.pac (env "+adviseEnv+")")
 	}
 	switch args[0] {
 	case "keygen", "configure", "run":
@@ -79,7 +96,7 @@ func dispatch(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "configure":
 		err = configure(*state, stdin, stderr)
 	case "run":
-		err = run(*state, listen, stderr)
+		err = run(*state, listen, advertise, stderr)
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "qits-access-companion %s: %v\n", args[0], err)
@@ -94,8 +111,9 @@ func usage(w io.Writer) {
       create the private key if it is absent and print the public key
   qits-access-companion configure [--state /state] < tunnel.json
       keep the GET /peers/{id}/tunnel answer read on stdin
-  qits-access-companion run [--state /state] [--listen 0.0.0.0:47813]
-      bring the tunnel up and serve the CONNECT proxy and GET /healthz
+  qits-access-companion run [--state /state] [--listen 0.0.0.0:47813] [--advertise 127.0.0.1:47813]
+      bring the tunnel up and serve the CONNECT proxy, GET /healthz and GET/HEAD /proxy.pac
+      --advertise (env QITS_COMPANION_ADVERTISE) is the host-side address named in /proxy.pac
 `)
 }
 

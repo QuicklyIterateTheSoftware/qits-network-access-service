@@ -122,6 +122,42 @@ func TestRunWithoutStateSaysWhatToRunFirst(t *testing.T) {
 	}
 }
 
+func TestRunDefaultsAdvertiseTo127001AndACompanionFlagOverridesIt(t *testing.T) {
+	// The default, unreached because --state is empty, still has to get past validateAdvertise
+	// before run() fails on the missing tunnel.json: a bad default would fail with a different
+	// message than "run `configure` first".
+	code, _, stderr := companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0")
+	if code != exitFailed || !strings.Contains(stderr, "run `configure` first") {
+		t.Fatalf("default advertise: exit %d, stderr %q", code, stderr)
+	}
+
+	code, _, stderr = companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0",
+		"--advertise", "not-host-port")
+	if code != exitFailed || !strings.Contains(stderr, `--advertise "not-host-port"`) {
+		t.Fatalf("bad --advertise: exit %d, stderr %q", code, stderr)
+	}
+
+	code, _, stderr = companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0",
+		"--advertise", "203.0.113.1:9")
+	if code != exitFailed || !strings.Contains(stderr, "run `configure` first") {
+		t.Fatalf("usable --advertise override: exit %d, stderr %q", code, stderr)
+	}
+}
+
+func TestRunAdvertiseEnvFallbackIsOverriddenByTheFlag(t *testing.T) {
+	t.Setenv("QITS_COMPANION_ADVERTISE", "not-host-port")
+	code, _, stderr := companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0")
+	if code != exitFailed || !strings.Contains(stderr, `--advertise "not-host-port"`) {
+		t.Fatalf("env fallback: exit %d, stderr %q", code, stderr)
+	}
+
+	code, _, stderr = companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0",
+		"--advertise", "203.0.113.1:9")
+	if code != exitFailed || !strings.Contains(stderr, "run `configure` first") {
+		t.Fatalf("flag overrides env: exit %d, stderr %q", code, stderr)
+	}
+}
+
 func TestUsage(t *testing.T) {
 	for _, args := range [][]string{{}, {"up"}, {"keygen", "extra"}, {"configure", "--listen", "x"}} {
 		if code, _, _ := companion(t, "", args...); code != exitUsage {

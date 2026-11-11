@@ -63,6 +63,7 @@ func newHarness(t *testing.T) (*fakes, *httptest.Server) {
 		TunnelIP:   "100.96.0.10",
 		Endpoint:   "46.224.171.33:47812",
 		Zone:       "wohlben.eu",
+		Advertise:  "127.0.0.1:47813",
 		TunnelCIDR: netip.MustParsePrefix("100.96.0.0/24"),
 		TunnelLookup: func(_ context.Context, host string) ([]netip.Addr, error) {
 			f.mu.Lock()
@@ -245,9 +246,11 @@ func TestEverythingButCONNECTAndHealthzIs405(t *testing.T) {
 	for _, req := range []string{
 		"GET / HTTP/1.1\r\nHost: x\r\n\r\n",
 		"POST /healthz HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\n\r\n",
-		// a forward-proxy request, absolute form, even for the health path
+		"POST /proxy.pac HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\n\r\n",
+		// a forward-proxy request, absolute form, even for the health and PAC paths
 		"GET http://github.com/healthz HTTP/1.1\r\nHost: github.com\r\n\r\n",
 		"GET http://network-access.qits.wohlben.eu/ HTTP/1.1\r\nHost: network-access.qits.wohlben.eu\r\n\r\n",
+		"GET http://network-access.qits.wohlben.eu/proxy.pac HTTP/1.1\r\nHost: network-access.qits.wohlben.eu\r\n\r\n",
 	} {
 		c, err := net.Dial("tcp", server.Listener.Addr().String())
 		if err != nil {
@@ -297,6 +300,68 @@ func TestHealthzIs503BeforeAnyHandshake(t *testing.T) {
 	}
 	if v, ok := fields["lastHandshake"]; !ok || v != nil {
 		t.Fatalf("lastHandshake %v (present %v), want an explicit null", v, ok)
+	}
+}
+
+func TestProxyPacServesFindProxyForURLForTheZone(t *testing.T) {
+	_, server := newHarness(t)
+	resp, err := http.Get(server.URL + "/proxy.pac")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/x-ns-proxy-autoconfig" {
+		t.Fatalf("Content-Type %q", ct)
+	}
+	if cc := resp.Header.Get("Cache-Control"); cc != "no-store" {
+		t.Fatalf("Cache-Control %q", cc)
+	}
+	want := `function FindProxyForURL(url, host) {
+  if (dnsDomainIs(host, ".qits.wohlben.eu") || host == "qits.wohlben.eu")
+    return "PROXY 127.0.0.1:47813; DIRECT";
+  return "DIRECT";
+}
+`
+	if string(body) != want {
+		t.Fatalf("body %q, want %q", body, want)
+	}
+}
+
+func TestProxyPacHeadHasNoBody(t *testing.T) {
+	_, server := newHarness(t)
+	resp, err := http.Head(server.URL + "/proxy.pac")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	if len(body) != 0 {
+		t.Fatalf("body %q, want none", body)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/x-ns-proxy-autoconfig" {
+		t.Fatalf("Content-Type %q", ct)
+	}
+}
+
+func TestProxyPacRefusesAnUnusableZone(t *testing.T) {
+	var logbuf bytes.Buffer
+	p := &Proxy{Zone: `evil"); alert(1); //`, Advertise: "127.0.0.1:47813", Log: log.New(&logbuf, "", 0)}
+	server := httptest.NewServer(p)
+	t.Cleanup(server.Close)
+	resp, err := http.Get(server.URL + "/proxy.pac")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("status %d, want 500", resp.StatusCode)
 	}
 }
 
