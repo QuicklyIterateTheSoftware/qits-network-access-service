@@ -146,7 +146,7 @@ func (j *joiner) join(args []string, env func(string) string) int {
 	if !j.systemd() {
 		message := "this host does not run systemd, so qits-node-tunnel cannot keep the tunnel up"
 		if j.isWSL() {
-			message += ` This is WSL: put "[boot]" and "systemd=true" in /etc/wsl.conf, run "wsl --shutdown" from Windows, reopen the distro and run the install line again.`
+			message += `. This is WSL: put "[boot]" and "systemd=true" in /etc/wsl.conf, run "wsl --shutdown" from Windows, reopen the distro and run the install line again.`
 		}
 		fmt.Fprintln(j.stderr, message)
 		return exitNoSystemd
