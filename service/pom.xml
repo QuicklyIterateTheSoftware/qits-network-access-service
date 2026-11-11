@@ -6,7 +6,7 @@
     <parent>
         <groupId>eu.wohlben.qits</groupId>
         <artifactId>qits-network-access</artifactId>
-        <version>2026.1110.201438</version>
+        <version>2026.1111.13358</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <!-- The deployable: the REST surface under /network-access/api. -->
