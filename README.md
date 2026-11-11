@@ -159,6 +159,11 @@ and `qits network-access up` runs it with them (`<run>` below is `docker run --u
     <run> -d --name qits-network-access-companion --restart unless-stopped \
       -p 127.0.0.1:47813:47813 <image>:<version> run
 
+`run` also takes `--advertise` (default `127.0.0.1:47813`, env `QITS_COMPANION_ADVERTISE`): the
+host-side address a browser's PAC file is told to use, since `0.0.0.0:47813` — what the proxy binds
+inside the container — means nothing outside it. The default matches the `-p` above; pass
+`--advertise` only when the publish differs.
+
 - **`keygen`** creates `/state/private.key` (0600) if it is absent and prints the base64 **public**
   key; it never prints the private one, and a second call prints the same key. An unreadable key
   file is an error, never replaced.
@@ -177,15 +182,18 @@ and `qits network-access up` runs it with them (`<run>` below is `docker run --u
 | `CONNECT` an IP literal | through the tunnel when inside `tunnelCidr`, else directly |
 | `CONNECT` any other port, any other method, an absolute-form (forward-proxy) request | 405, `Allow: CONNECT` — this is no open proxy |
 | `GET /healthz` | `{peerId, tunnelIp, lastHandshake, endpoint}`; 200 when the device's last handshake (`IpcGet`'s `last_handshake_time_*`) is within 3 minutes, else 503 (`lastHandshake: null` before the first) |
+| `GET` / `HEAD /proxy.pac`, origin-form | 200, `Content-Type: application/x-ns-proxy-autoconfig`, `Cache-Control: no-store`; a `FindProxyForURL` that sends every host in the zone (`.qits.<domain>`, and the bare `qits.<domain>`) to `PROXY <advertise>`, `DIRECT` otherwise, falling back to `DIRECT` if the companion is unreachable. `HEAD` answers the same headers with no body. Names no private host — a browser, not just the CLI, can now point its proxy auto-config at this URL. A zone that is not a bare `[a-z0-9.-]` name (there should be no such config) is 500, never spliced into the script unescaped |
 
 One log line per request — `CONNECT host=<host:port> route=tunnel|direct status=<code>` — and
 never a key. An upstream that cannot be dialled is 502.
 
 The tests (`go test ./...`) cover the routing with a fake resolver and fake dialers (in-zone tunnel
 answer, in-zone public answer, out of zone, IP literals, an unresolvable in-zone name), the 405
-refusals, the healthz states, keygen persistence and `configure`'s validation, plus one end-to-end
-test with two in-process netstack devices over loopback UDP: a stand-in edge at `100.96.0.1`
-answering DNS and echoing on `:443`, and the companion's own device.
+refusals, the healthz states, the `/proxy.pac` body (content type, `HEAD`'s empty body, a refused
+unusable zone, an absolute-form `GET` still 405), `--advertise`'s default/override/env fallback,
+keygen persistence and `configure`'s validation, plus one end-to-end test with two in-process
+netstack devices over loopback UDP: a stand-in edge at `100.96.0.1` answering DNS and echoing on
+`:443`, and the companion's own device.
 
 It is built and tested in docker/Dockerfile's `access-client` stage with the node helper, and
 released with the service image by the packaged java-service recipe; there is no release step of its

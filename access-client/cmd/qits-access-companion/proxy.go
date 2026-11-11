@@ -44,14 +44,16 @@ type Lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 // Handshake answers when the tunnel last completed a handshake; zero for never.
 type Handshake func() (time.Time, error)
 
-// Proxy is the companion's HTTP surface: CONNECT with split resolution, and GET /healthz. It is no
-// open forward proxy: CONNECT only, to ports 80 and 443 only; everything else is 405.
+// Proxy is the companion's HTTP surface: CONNECT with split resolution, GET /healthz and GET/HEAD
+// /proxy.pac. It is no open forward proxy: CONNECT only, to ports 80 and 443 only; everything else
+// is 405.
 type Proxy struct {
 	PeerID     string
 	TunnelIP   string
 	Endpoint   string
 	Zone       string       // the platform's domain; a host in it is resolved through the tunnel
 	TunnelCIDR netip.Prefix // an answer inside it is dialled through the tunnel
+	Advertise  string       // the proxy's host-side address, named in /proxy.pac's PROXY entry
 
 	TunnelLookup Lookup
 	TunnelDial   Dialer
@@ -121,9 +123,15 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Origin form only: an absolute-form GET is a forward-proxy request, which this is not.
-	if r.Method == http.MethodGet && !r.URL.IsAbs() && r.URL.Path == "/healthz" {
-		p.healthz(w)
-		return
+	if !r.URL.IsAbs() {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/healthz":
+			p.healthz(w)
+			return
+		case (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.URL.Path == "/proxy.pac":
+			p.pac(w, r)
+			return
+		}
 	}
 	p.refuse(w, r, "only CONNECT is served")
 }
@@ -220,6 +228,52 @@ func closeWrite(c net.Conn) {
 		return
 	}
 	c.Close()
+}
+
+// pacTemplate is the PAC body's shape: every in-zone name goes through the companion, by its
+// advertised address; anything else goes direct. The browser evaluates this as JavaScript, so the
+// zone has to be checked clean of quotes and parens before it is formatted in — see pacZone.
+const pacTemplate = `function FindProxyForURL(url, host) {
+  if (dnsDomainIs(host, ".qits.%[1]s") || host == "qits.%[1]s")
+    return "PROXY %[2]s; DIRECT";
+  return "DIRECT";
+}
+`
+
+// pacZone lowercases a configured domain and strips a trailing dot, the way InZone does, and
+// refuses anything that is not a bare DNS name: the zone comes from config, but it is spliced
+// into a script a browser runs, so nothing outside [a-z0-9.-] may reach the PAC body unescaped.
+func pacZone(zone string) (string, bool) {
+	zone = strings.ToLower(strings.TrimSuffix(zone, "."))
+	if zone == "" {
+		return "", false
+	}
+	for _, r := range zone {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '.' || r == '-') {
+			return "", false
+		}
+	}
+	return zone, true
+}
+
+// pac answers GET and HEAD /proxy.pac: a browser's proxy auto-config, sending every host in the
+// companion's zone through it (by Advertise, the host-side address) and everything else direct.
+// It names no private host, so it leaks nothing beyond the zone itself.
+func (p *Proxy) pac(w http.ResponseWriter, r *http.Request) {
+	zone, ok := pacZone(p.Zone)
+	if !ok {
+		p.Log.Printf("%s host=%s route=- status=%d (zone %q is unusable)",
+			r.Method, r.Host, http.StatusInternalServerError, p.Zone)
+		http.Error(w, "the proxy's zone is unusable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodGet {
+		io.WriteString(w, fmt.Sprintf(pacTemplate, zone, p.Advertise))
+	}
+	p.Log.Printf("%s host=%s route=- status=%d", r.Method, r.Host, http.StatusOK)
 }
 
 // Health is the GET /healthz body.
