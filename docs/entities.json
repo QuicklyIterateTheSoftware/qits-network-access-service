@@ -1,5 +1,5 @@
 {
-  "formatVersion" : 1,
+  "formatVersion" : 2,
   "application" : "qits-network-access",
   "entities" : [
     {
@@ -29,42 +29,48 @@
           "method" : "POST",
           "path" : "/peers",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getNode",
           "method" : "GET",
           "path" : "/nodes/{targetId}",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getNodes",
           "method" : "GET",
           "path" : "/nodes",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "getPeer",
           "method" : "GET",
           "path" : "/peers/{peerId}",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getPeers",
           "method" : "GET",
           "path" : "/peers",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "revokePeer",
           "method" : "POST",
           "path" : "/peers/{peerId}/revoke",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         }
       ]
     },
@@ -107,56 +113,64 @@
           "method" : "POST",
           "path" : "/peers",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getNode",
           "method" : "GET",
           "path" : "/nodes/{targetId}",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getNodes",
           "method" : "GET",
           "path" : "/nodes",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$NodeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "getPeer",
           "method" : "GET",
           "path" : "/peers/{peerId}",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getPeerTunnel",
           "method" : "GET",
           "path" : "/peers/{peerId}/tunnel",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getPeers",
           "method" : "GET",
           "path" : "/peers",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "joinNode",
           "method" : "POST",
           "path" : "/nodes/{targetId}/join",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "revokePeer",
           "method" : "POST",
           "path" : "/peers/{peerId}/revoke",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PeerDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         }
       ]
     },
@@ -193,21 +207,24 @@
           "method" : "GET",
           "path" : "/peers/{peerId}/tunnel",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getPrivateEdge",
           "method" : "GET",
           "path" : "/private-edge",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$PrivateEdgeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "joinNode",
           "method" : "POST",
           "path" : "/nodes/{targetId}/join",
           "dto" : "eu.wohlben.qits.networkaccess.api.NetworkAccessWire$EdgeDto",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         }
       ]
     }
