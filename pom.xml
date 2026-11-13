@@ -47,7 +47,7 @@
         <!-- The datasource resilience pair (PatientPgDriver/DbRetry, and the rule that checks the
              block). They move together: the rule names the driver as a string. -->
         <qits.db-core.version>2026.1107.191249</qits.db-core.version>
-        <qits.arch-rules.version>2026.1108.20205</qits.arch-rules.version>
+        <qits.arch-rules.version>2026.1113.14706</qits.arch-rules.version>
         <!-- Machine identity: the rollout gate every sibling shares. -->
         <qits.auth-core.version>2026.1106.507</qits.auth-core.version>
         <!-- Caller stamping on inbound and outbound HTTP. -->
