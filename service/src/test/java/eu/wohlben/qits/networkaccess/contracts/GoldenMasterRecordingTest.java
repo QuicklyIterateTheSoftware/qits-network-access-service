@@ -37,9 +37,9 @@ import org.junit.jupiter.api.Test;
  * <p>For each (state, operation) pair in {@link #INTERACTIONS} it runs the state ({@link
  * ProviderStates}), calls the operation as the operator holding {@code qits:admin}, freezes ids and
  * instants ({@link Freezer}) and renders {@code golden-masters/<state-slug>/<operationId>.json}; then
- * {@code golden-masters/index.json} (format version 1). A {@code text/plain} answer (the config) is
- * recorded as one JSON string, as qits-system records its install script, and so is the node
- * helper's {@code application/octet-stream}: the suite serves a short text stand-in for it.
+ * {@code golden-masters/index.json} (format version 1). A {@code text/plain} answer (either
+ * config) is recorded as one JSON string, as qits-system records its install script, and so is the
+ * node helper's {@code application/octet-stream}: the suite serves a short text stand-in for it.
  *
  * <p>The release gate fails any operation of {@code docs/openapi.yml} this table does not cover, so
  * a new door joins it in the same commit. {@code joinNode} is recorded as the operator, who skips
@@ -115,6 +115,13 @@ class GoldenMasterRecordingTest {
               "getPeerConfig",
               "GET",
               API + "/peers/{peerId}/config",
+              null,
+              200),
+          new Interaction(
+              ProviderStates.A_DEVICE_PEER,
+              "getPeerAppConfig",
+              "GET",
+              API + "/peers/{peerId}/app-config",
               null,
               200),
           new Interaction(

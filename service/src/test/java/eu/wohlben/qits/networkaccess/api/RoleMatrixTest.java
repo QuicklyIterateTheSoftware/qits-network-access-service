@@ -41,6 +41,7 @@ class RoleMatrixTest {
           new String[] {"GET", API + "/peers"},
           new String[] {"GET", API + "/peers/" + PEER},
           new String[] {"GET", API + "/peers/" + PEER + "/config"},
+          new String[] {"GET", API + "/peers/" + PEER + "/app-config"},
           new String[] {"GET", API + "/peers/" + PEER + "/tunnel"},
           new String[] {"GET", API + "/nodes"},
           new String[] {"GET", API + "/nodes/" + TARGET},

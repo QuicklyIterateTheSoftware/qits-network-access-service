@@ -32,8 +32,8 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 
 /**
  * The peers: list and read them, add a device, revoke one, and hand out what a client needs to
- * connect — the {@code wg-quick} config and the tunnel parameters. The READ set at class level, the
- * WRITE set on the two writes (see {@link Roles}).
+ * connect — the {@code wg-quick} config, the WireGuard apps' config and the tunnel parameters. The
+ * READ set at class level, the WRITE set on the two writes (see {@link Roles}).
  */
 @Path("/peers")
 @Produces(MediaType.APPLICATION_JSON)
@@ -124,6 +124,21 @@ public class PeersResource {
   public String config(@PathParam("peerId") UUID peerId) {
     NaPeer peer = registry.get(peerId);
     return PeerConfig.render(peer, edge());
+  }
+
+  @GET
+  @Path("/{peerId}/app-config")
+  @Produces(MediaType.TEXT_PLAIN)
+  @Operation(
+      operationId = "getPeerAppConfig",
+      summary =
+          "The peer's config for the WireGuard apps, with a literal <PRIVATE_KEY> placeholder")
+  @APIResponse(responseCode = "200", description = "The config")
+  @APIResponse(responseCode = "404", description = "No such peer")
+  @APIResponse(responseCode = "409", description = "No private edge has announced itself")
+  public String appConfig(@PathParam("peerId") UUID peerId) {
+    NaPeer peer = registry.get(peerId);
+    return PeerConfig.renderApp(peer, edge());
   }
 
   @GET

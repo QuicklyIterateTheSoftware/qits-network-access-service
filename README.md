@@ -69,6 +69,7 @@ for a desk or a service, that client's id, which no `UserDeleted` matches (revok
 | `POST /peers` `{name, publicKey}` | 201, a DEVICE peer owned by the caller; 400 bad name/key; 409 duplicate key, name, or full pool | write |
 | `POST /peers/{id}/revoke` | 200, the peer REVOKED (reason REVOKED); idempotent | write |
 | `GET /peers/{id}/config` | `text/plain`, the `wg-quick` config; 409 until an edge announced itself | read |
+| `GET /peers/{id}/app-config` | `text/plain`, the WireGuard apps' config (Android, iOS, macOS, Windows); 409 until an edge announced itself | read |
 | `GET /peers/{id}/tunnel` | `{peerId, tunnelIp, edge: {publicKey, publicAddress, listenPort, dnsAddress, tunnelCidr, mtu, domain}}`, the companion's input | read |
 | `GET /nodes`, `GET /nodes/{targetId}` | joined nodes with their ACTIVE peer | read |
 | `POST /nodes/{targetId}/join` `{name, publicKey}` | 200, the node's tunnel answer (as `/peers/{id}/tunnel`); 403 another target's token; 409 no edge yet, a key another peer holds, or a full pool; 503 qits-system unreachable | write, or `qits:target-runner-registration` (checked) |
@@ -93,9 +94,13 @@ Names are DNS labels (`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`); a public key is 4
 base64 decoding to 32 bytes.
 
 **The config** (`PeerConfig.render`) has no `DNS =` line, deliberately: wg-quick would send every
-query to the tunnel resolver, which refuses names outside the zone, and the client would lose the
-internet. Split DNS is set with `resolvectl` in `PostUp`. `<PRIVATE_KEY>` is literal; the client
-replaces it.
+query to the tunnel resolver, and a Linux client keeps the internet's names off the tunnel with split
+DNS, set with `resolvectl` in `PostUp`. `<PRIVATE_KEY>` is literal; the client replaces it.
+
+**The apps' config** (`PeerConfig.renderApp`) is the same tunnel for the WireGuard apps, which run
+no `PostUp`/`PreDown` and (Android, iOS) refuse an interface key they do not know at import: no
+hooks, no Linux hint, and a `DNS = <dnsAddress>` line instead. The apps have no split DNS, and the
+tunnel resolver forwards names outside the zone (qits-2262), so the client keeps the internet.
 
 ## The events
 

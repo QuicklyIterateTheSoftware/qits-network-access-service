@@ -402,6 +402,42 @@ paths:
         - qits:desk
         - qits:agent
         - qits:system
+  /network-access/api/peers/{peerId}/app-config:
+    get:
+      summary: "The peer's config for the WireGuard apps, with a literal <PRIVATE_KEY>\
+        \ placeholder"
+      operationId: getPeerAppConfig
+      parameters:
+      - name: peerId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: The config
+          content:
+            text/plain:
+              schema:
+                type: string
+        "404":
+          description: No such peer
+        "409":
+          description: No private edge has announced itself
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      tags:
+      - Peers Resource
+      security:
+      - SecurityScheme:
+        - qits:admin
+        - qits:admin-agent
+        - qits:desk-admin
+        - qits:desk
+        - qits:agent
+        - qits:system
   /network-access/api/peers/{peerId}/config:
     get:
       summary: "The peer's wg-quick config, with a literal <PRIVATE_KEY> placeholder"

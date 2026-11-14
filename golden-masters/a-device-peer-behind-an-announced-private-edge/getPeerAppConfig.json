@@ -1,0 +1,1 @@
+"# qits network access: laptop (00000000-0000-4000-8000-000000000001), DEVICE\n[Interface]\nPrivateKey = <PRIVATE_KEY>\nAddress = 100.96.0.10/32\nDNS = 100.96.0.1\nMTU = 1380\n\n[Peer]\nPublicKey = AAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc=\nEndpoint = 46.224.171.33:47812\nAllowedIPs = 100.96.0.1/32\nPersistentKeepalive = 25\n"

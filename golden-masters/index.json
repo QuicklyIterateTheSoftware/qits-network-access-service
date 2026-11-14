@@ -28,6 +28,21 @@
           }
         },
         {
+          "operationId": "getPeerAppConfig",
+          "method": "GET",
+          "path": "/network-access/api/peers/{peerId}/app-config",
+          "status": 200,
+          "file": "a-device-peer-behind-an-announced-private-edge/getPeerAppConfig.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
           "operationId": "getPeerConfig",
           "method": "GET",
           "path": "/network-access/api/peers/{peerId}/config",

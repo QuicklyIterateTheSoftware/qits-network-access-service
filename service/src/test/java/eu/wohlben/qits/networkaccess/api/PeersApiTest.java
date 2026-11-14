@@ -25,8 +25,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The peer doors end to end against the real store: registration, the allocation (lowest free,
- * reuse after revoke, exhaustion at 245), revocation, the config and tunnel answers, and exactly one
- * event per write with the design table's fields (a fake bus, {@link Fixtures#recordEvents()}).
+ * reuse after revoke, exhaustion at 245), revocation, both configs and the tunnel answer, and
+ * exactly one event per write with the design table's fields (a fake bus, {@link
+ * Fixtures#recordEvents()}).
  */
 @QuarkusTest
 @TestSecurity(user = PeersApiTest.PERSON, roles = "qits:admin")
@@ -279,6 +280,44 @@ class PeersApiTest {
         .body("edge.tunnelCidr", equalTo("100.96.0.0/24"))
         .body("edge.mtu", equalTo(1380))
         .body("edge.domain", equalTo("wohlben.eu"));
+  }
+
+  @Test
+  void theAppConfigWaitsForAnAnnouncedEdgeAndSetsTheTunnelResolver() {
+    String id = create("phone", Fixtures.key(2));
+    given()
+        .get(PEERS + "/" + id + "/app-config")
+        .then()
+        .statusCode(409)
+        .body("message", equalTo("no private edge has announced itself"));
+
+    fixtures.edge();
+    String config =
+        given()
+            .get(PEERS + "/" + id + "/app-config")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.TEXT)
+            .extract()
+            .asString();
+    assertEquals(
+        "# qits network access: phone (" + id + "), DEVICE\n"
+            + "[Interface]\n"
+            + "PrivateKey = <PRIVATE_KEY>\n"
+            + "Address = 100.96.0.10/32\n"
+            + "DNS = 100.96.0.1\n"
+            + "MTU = 1380\n"
+            + "\n"
+            + "[Peer]\n"
+            + "PublicKey = "
+            + Fixtures.EDGE_PUBLIC_KEY
+            + "\n"
+            + "Endpoint = 46.224.171.33:47812\n"
+            + "AllowedIPs = 100.96.0.1/32\n"
+            + "PersistentKeepalive = 25\n",
+        config);
+
+    given().get(PEERS + "/" + UUID.randomUUID() + "/app-config").then().statusCode(404);
   }
 
   @Test
