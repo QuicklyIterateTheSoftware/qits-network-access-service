@@ -102,6 +102,14 @@ no `PostUp`/`PreDown` and (Android, iOS) refuse an interface key they do not kno
 hooks, no Linux hint, and a `DNS = <dnsAddress>` line instead. The apps have no split DNS, and the
 tunnel resolver forwards names outside the zone (qits-2262), so the client keeps the internet.
 
+The tunnel resolver (`<dnsAddress>`, 100.96.0.1) answers every routed private name's tunnel address
+inside the zone; outside it, it forwards the upstream's answer unchanged (qits-2262), and SERVFAILs
+when the upstream fails or stays silent. Public DNS now answers the tunnel address for private names
+too (qits-2273), but the `DNS =` line stays: a resolver with DNS-rebind protection (dnsmasq, a
+FRITZ!Box) drops answers in 100.64.0.0/10, and the tunnel resolver is not affected. A browser
+reaching the private apps from the public landing app (`qits.<domain>`) also needs Chrome's
+local-network permission, which the landing app asks for (qits-2297); DNS alone is not enough.
+
 ## The events
 
 Published through `QitsEventBus` in the transaction that writes the row, after its flush:
