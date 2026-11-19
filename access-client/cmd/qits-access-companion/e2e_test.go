@@ -67,11 +67,16 @@ func TestTheCompanionReachesAnInZoneNameThroughARealTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 	endpoint := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
-	tun, err := Up(companionKey, answer, endpoint, quiet)
+	// A host link of 1380 lowers the edge's 1420 to 1300, and the tunnel still carries the echo.
+	mtu, _ := chooseMTU(answer, 1380)
+	tun, err := Up(companionKey, answer, endpoint, mtu, quiet)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(tun.Device.Close)
+	if got, err := tun.TUN.MTU(); err != nil || got != 1300 {
+		t.Fatalf("the netstack device's MTU is %d, %v; want 1300", got, err)
+	}
 	var logged strings.Builder
 	proxy, err := NewProxy(answer, endpoint, tun, "127.0.0.1:47813", log.New(&logged, "", 0))
 	if err != nil {

@@ -16,7 +16,9 @@
 //	run        bring the tunnel up and serve CONNECT, GET /healthz and GET/HEAD /proxy.pac on
 //	           0.0.0.0:47813; --advertise (or QITS_COMPANION_ADVERTISE) names the host-side address
 //	           of that port, the one a browser's PAC file is told to use, since 0.0.0.0:47813 means
-//	           nothing outside the container
+//	           nothing outside the container; --link-mtu (or QITS_COMPANION_LINK_MTU) is the host
+//	           link's MTU as the CLI measured it, which lowers the tunnel's MTU to fit
+//	           (tunnel.MTU: the edge's, or the link's minus 80 when that is smaller)
 //
 // See README.md, "The companion".
 package main
@@ -53,6 +55,11 @@ const defaultAdvertise = "127.0.0.1:47813"
 // adviseEnv is the environment fallback for --advertise.
 const adviseEnv = "QITS_COMPANION_ADVERTISE"
 
+// linkMTUEnv is the environment fallback for --link-mtu. The companion cannot measure the host's
+// link from inside its container — its eth0 is docker's bridge, not the link the encrypted UDP
+// finally leaves the host by — so the CLI measures it and passes it in.
+const linkMTUEnv = "QITS_COMPANION_LINK_MTU"
+
 func main() {
 	os.Exit(dispatch(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
@@ -70,10 +77,13 @@ func dispatch(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if v := os.Getenv(adviseEnv); v != "" {
 		advertise = v
 	}
+	linkMTU := os.Getenv(linkMTUEnv)
 	if args[0] == "run" {
 		flags.StringVar(&listen, "listen", defaultListen, "the proxy's listen address")
 		flags.StringVar(&advertise, "advertise", advertise,
 			"the proxy's host-side address, named in /proxy.pac (env "+adviseEnv+")")
+		flags.StringVar(&linkMTU, "link-mtu", linkMTU,
+			"the host link's MTU, as the CLI measured it; empty when unknown (env "+linkMTUEnv+")")
 	}
 	switch args[0] {
 	case "keygen", "configure", "run":
@@ -96,7 +106,7 @@ func dispatch(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "configure":
 		err = configure(*state, stdin, stderr)
 	case "run":
-		err = run(*state, listen, advertise, stderr)
+		err = run(*state, listen, advertise, parseLinkMTU(linkMTU, stderr), stderr)
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "qits-access-companion %s: %v\n", args[0], err)
@@ -112,9 +122,24 @@ func usage(w io.Writer) {
   qits-access-companion configure [--state /state] < tunnel.json
       keep the GET /peers/{id}/tunnel answer read on stdin
   qits-access-companion run [--state /state] [--listen 0.0.0.0:47813] [--advertise 127.0.0.1:47813]
+                           [--link-mtu <host link MTU>]
       bring the tunnel up and serve the CONNECT proxy, GET /healthz and GET/HEAD /proxy.pac
       --advertise (env QITS_COMPANION_ADVERTISE) is the host-side address named in /proxy.pac
+      --link-mtu (env QITS_COMPANION_LINK_MTU) is the host link's MTU; the tunnel's MTU is the
+      edge's, lowered to it minus 80 when that is smaller
 `)
+}
+
+// parseLinkMTU reads --link-mtu. An unusable value is a warning and an unknown link, never a
+// failure: the edge's MTU is what the companion ran at before the CLI passed one, and a tunnel at
+// it beats no tunnel.
+func parseLinkMTU(value string, stderr io.Writer) int {
+	mtu, err := tunnel.ParseLinkMTU(value)
+	if err != nil {
+		fmt.Fprintf(stderr, "warning: --link-mtu: %v; the host link is taken as unknown\n", err)
+		return 0
+	}
+	return mtu
 }
 
 // keygen creates the key once and prints its public half. A second call prints the same key: the

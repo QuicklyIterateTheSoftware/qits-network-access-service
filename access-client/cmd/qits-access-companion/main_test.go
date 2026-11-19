@@ -168,3 +168,51 @@ func TestUsage(t *testing.T) {
 		t.Fatalf("--help: exit %d, %q", code, out)
 	}
 }
+
+func TestTheLinkMTUIsUsedWhenUsableAndOtherwiseAWarningAndTheEdgesMTU(t *testing.T) {
+	answer, err := tunnel.Parse([]byte(answer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		value, warning, line string
+		mtu                  int
+	}{
+		{"1380", "", "mtu 1300 (edge 1380, host link 1380 - 80, as passed by the CLI)", 1300},
+		{"1500", "", "mtu 1380 (edge 1380, host link 1500 - 80, as passed by the CLI)", 1380},
+		{"", "", "mtu 1380 (edge 1380, host link unknown so the edge's MTU is used)", 1380},
+		{"abc", `link MTU "abc" is not an integer`, "mtu 1380 (edge 1380, host link unknown so the edge's MTU is used)", 1380},
+		{"100", "link MTU 100 is outside 576..9000", "mtu 1380 (edge 1380, host link unknown so the edge's MTU is used)", 1380},
+		{"99999", "link MTU 99999 is outside 576..9000", "mtu 1380 (edge 1380, host link unknown so the edge's MTU is used)", 1380},
+	} {
+		var stderr bytes.Buffer
+		mtu, line := chooseMTU(answer, parseLinkMTU(c.value, &stderr))
+		if mtu != c.mtu || line != c.line {
+			t.Errorf("--link-mtu %q: %d, %q; want %d, %q", c.value, mtu, line, c.mtu, c.line)
+		}
+		if c.warning == "" && stderr.Len() != 0 || c.warning != "" && !strings.Contains(stderr.String(), "warning: --link-mtu: "+c.warning) {
+			t.Errorf("--link-mtu %q: stderr %q, want warning %q", c.value, stderr.String(), c.warning)
+		}
+	}
+}
+
+func TestRunTakesTheLinkMTUFromTheFlagOrTheEnvironmentAndNeverFailsOnIt(t *testing.T) {
+	// An unusable value warns and run goes on, to fail on the missing tunnel.json as it would
+	// without one.
+	code, _, stderr := companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0", "--link-mtu", "abc")
+	if code != exitFailed || !strings.Contains(stderr, `warning: --link-mtu: link MTU "abc"`) ||
+		!strings.Contains(stderr, "run `configure` first") {
+		t.Fatalf("bad --link-mtu: exit %d, stderr %q", code, stderr)
+	}
+
+	t.Setenv("QITS_COMPANION_LINK_MTU", "100")
+	code, _, stderr = companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0")
+	if code != exitFailed || !strings.Contains(stderr, "warning: --link-mtu: link MTU 100 is outside") {
+		t.Fatalf("bad env: exit %d, stderr %q", code, stderr)
+	}
+
+	code, _, stderr = companion(t, "", "run", "--state", t.TempDir(), "--listen", "127.0.0.1:0", "--link-mtu", "1380")
+	if code != exitFailed || strings.Contains(stderr, "warning") {
+		t.Fatalf("flag overrides env: exit %d, stderr %q", code, stderr)
+	}
+}

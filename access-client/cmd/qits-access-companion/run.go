@@ -19,6 +19,7 @@ import (
 
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
+	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/tun/netstack"
 
 	"qits.wohlben.eu/access-client/internal/keys"
@@ -31,12 +32,13 @@ import (
 type Tunnel struct {
 	Device *device.Device
 	Net    *netstack.Net
+	TUN    tun.Device // the netstack's end of Device, kept for its MTU
 }
 
 // Up brings the device up at t.TunnelIP with the edge as its only peer, allowed only the edge's DNS
-// address, at the answer's MTU and with the keepalive every edge peer uses (wgipc.Config). The
-// netstack's resolver asks t.Edge.DNSAddress, through the tunnel.
-func Up(private keys.Private, t tunnel.Tunnel, endpoint string, logger *device.Logger) (*Tunnel, error) {
+// address, at mtu (chooseMTU's, never above the answer's) and with the keepalive every edge peer
+// uses (wgipc.Config). The netstack's resolver asks t.Edge.DNSAddress, through the tunnel.
+func Up(private keys.Private, t tunnel.Tunnel, endpoint string, mtu int, logger *device.Logger) (*Tunnel, error) {
 	address, err := netip.ParseAddr(t.TunnelIP)
 	if err != nil {
 		return nil, err
@@ -49,7 +51,7 @@ func Up(private keys.Private, t tunnel.Tunnel, endpoint string, logger *device.L
 	if err != nil {
 		return nil, err
 	}
-	dev, tnet, err := netstack.CreateNetTUN([]netip.Addr{address}, []netip.Addr{dns}, t.Edge.MTU)
+	dev, tnet, err := netstack.CreateNetTUN([]netip.Addr{address}, []netip.Addr{dns}, mtu)
 	if err != nil {
 		return nil, fmt.Errorf("create the netstack device: %w", err)
 	}
@@ -62,7 +64,19 @@ func Up(private keys.Private, t tunnel.Tunnel, endpoint string, logger *device.L
 		wg.Close()
 		return nil, fmt.Errorf("bring the WireGuard device up: %w", err)
 	}
-	return &Tunnel{Device: wg, Net: tnet}, nil
+	return &Tunnel{Device: wg, Net: tnet, TUN: dev}, nil
+}
+
+// chooseMTU is the tunnel's MTU for the host link the CLI passed (0 when it passed none), and the
+// line run logs about it. The answer's MTU stays what it is in tunnel.json: the lowered value is
+// this host's, recomputed on every run, never kept.
+func chooseMTU(t tunnel.Tunnel, linkMTU int) (int, string) {
+	c := tunnel.MTU(t.Edge.MTU, linkMTU)
+	line := fmt.Sprintf("mtu %d (%s", c.MTU, c.Why("host link"))
+	if c.Link > 0 {
+		line += ", as passed by the CLI"
+	}
+	return c.MTU, line + ")"
 }
 
 // Lookup resolves through the tunnel, keeping the IPv4 answers.
@@ -133,7 +147,7 @@ func validateAdvertise(advertise string) error {
 }
 
 // run is the container's long-running mode: the tunnel, then the proxy, until SIGTERM or SIGINT.
-func run(state, listen, advertise string, stderr io.Writer) error {
+func run(state, listen, advertise string, linkMTU int, stderr io.Writer) error {
 	if err := validateAdvertise(advertise); err != nil {
 		return err
 	}
@@ -158,7 +172,9 @@ func run(state, listen, advertise string, stderr io.Writer) error {
 		return err
 	}
 	logger := log.New(stderr, "", log.LstdFlags|log.LUTC)
-	tun, err := Up(private, t, endpoint, device.NewLogger(device.LogLevelError, "(wg) "))
+	mtu, why := chooseMTU(t, linkMTU)
+	logger.Print(why)
+	tun, err := Up(private, t, endpoint, mtu, device.NewLogger(device.LogLevelError, "(wg) "))
 	if err != nil {
 		return err
 	}

@@ -16,14 +16,11 @@ import (
 // route replace` do, without needing iproute2 on the node. Each request replaces, so a restart of
 // the unit finds nothing in its way.
 func configureLink(index int, address, route netip.Addr) error {
-	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC, unix.NETLINK_ROUTE)
+	fd, err := openRoute(0, 0)
 	if err != nil {
-		return fmt.Errorf("netlink socket: %w", err)
+		return err
 	}
 	defer unix.Close(fd)
-	if err := unix.Bind(fd, &unix.SockaddrNetlink{Family: unix.AF_NETLINK}); err != nil {
-		return fmt.Errorf("netlink bind: %w", err)
-	}
 	for i, step := range []struct {
 		what    string
 		message []byte
@@ -37,6 +34,20 @@ func configureLink(index int, address, route netip.Addr) error {
 		}
 	}
 	return nil
+}
+
+// openRoute is a bound NETLINK_ROUTE socket: for requests with groups 0, or subscribed to the
+// multicast groups given (RTMGRP_*). flags adds socket flags such as SOCK_NONBLOCK.
+func openRoute(flags int, groups uint32) (int, error) {
+	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC|flags, unix.NETLINK_ROUTE)
+	if err != nil {
+		return -1, fmt.Errorf("netlink socket: %w", err)
+	}
+	if err := unix.Bind(fd, &unix.SockaddrNetlink{Family: unix.AF_NETLINK, Groups: groups}); err != nil {
+		unix.Close(fd)
+		return -1, fmt.Errorf("netlink bind: %w", err)
+	}
+	return fd, nil
 }
 
 // request sends one message and reads its acknowledgement.

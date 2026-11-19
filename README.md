@@ -172,6 +172,15 @@ image carries at `/work/node-tunnel/qits-node-tunnel`:
 - `qits-node-tunnel up` (the unit's `ExecStart`): TUN `qits0`, wireguard-go in-process, the address
   and the one route by netlink, split DNS with `resolvectl` when systemd-resolved runs.
 
+`qits0`'s MTU is the edge's `mtu`, lowered to the link towards the edge minus 80 (wg-quick's rule,
+an IPv6 outer header's worst case) when that is smaller, and never below 576: a node whose link is
+under `mtu + 80` (WSL's `eth0` at 1380) otherwise has every full-size packet refused by its own
+kernel (`sendmmsg: message too long`) and TLS stalls. `up` asks the kernel for the route to the
+endpoint (`ip route get`, by rtnetlink; a lower route MTU wins over the interface's), logs `qits0
+mtu 1300 (edge 1380, eth0 1380 - 80)`, and keeps watching link and route events: a link that
+changes later moves `qits0` with it, and wireguard-go follows. A failed measurement falls back to the
+edge's MTU with a warning. `tunnel.json` is never rewritten.
+
 Shared code is in `access-client/internal/` (the key file, the tunnel JSON, the UAPI text and the
 handshake read), and the companion below builds beside it.
 
@@ -196,6 +205,15 @@ host-side address a browser's PAC file is told to use, since `0.0.0.0:47813` —
 inside the container — means nothing outside it. The default matches the `-p` above; pass
 `--advertise` only when the publish differs.
 
+`run` also takes `--link-mtu` (env `QITS_COMPANION_LINK_MTU`): the host link's MTU as the CLI
+measured it, since the container's own `eth0` is docker's bridge, not the link the encrypted UDP
+leaves the host by. The tunnel's MTU is the same rule as the node helper's — the edge's, lowered to
+the link's minus 80, at least 576 — logged as `mtu 1300 (edge 1380, host link 1380 - 80, as passed
+by the CLI)`; with no value, or one that is not an integer in 576..9000 (a warning, never a
+failure), the host link is unknown and the edge's MTU is used. The known limit: the container runs
+`--restart unless-stopped`, so its value is the one measured at the last `qits network-access up`; a
+host link that shrinks later needs `up` again.
+
 - **`keygen`** creates `/state/private.key` (0600) if it is absent and prints the base64 **public**
   key; it never prints the private one, and a second call prints the same key. An unreadable key
   file is an error, never replaced.
@@ -204,7 +222,7 @@ inside the container — means nothing outside it. The default matches the `-p` 
 - **`run`** brings up wireguard-go on gVisor's netstack (`golang.zx2c4.com/wireguard/tun/netstack`,
   the same wireguard-go commit as the node helper; gVisor at the version that commit requires):
   `Address = tunnelIp`, the edge as the only peer at `publicAddress:listenPort`, `AllowedIPs =
-  dnsAddress/32`, the answer's MTU, keepalive 25. In front of it, on `0.0.0.0:47813` (docker
+  dnsAddress/32`, the answer's MTU lowered for `--link-mtu`, keepalive 25. In front of it, on `0.0.0.0:47813` (docker
   publishes it to `127.0.0.1` only):
 
 | Request | Answer |
@@ -222,10 +240,10 @@ never a key. An upstream that cannot be dialled is 502.
 The tests (`go test ./...`) cover the routing with a fake resolver and fake dialers (in-zone tunnel
 answer, in-zone public answer, out of zone, IP literals, an unresolvable in-zone name), the 405
 refusals, the healthz states, the `/proxy.pac` body (content type, `HEAD`'s empty body, a refused
-unusable zone, an absolute-form `GET` still 405), `--advertise`'s default/override/env fallback,
+unusable zone, an absolute-form `GET` still 405), `--advertise`'s default/override/env fallback, `--link-mtu`'s parsing and the MTU it chooses,
 keygen persistence and `configure`'s validation, plus one end-to-end test with two in-process
 netstack devices over loopback UDP: a stand-in edge at `100.96.0.1` answering DNS and echoing on
-`:443`, and the companion's own device.
+`:443`, and the companion's own device, at the MTU a 1380 host link lowers it to.
 
 It is built and tested in docker/Dockerfile's `access-client` stage with the node helper, and
 released with the service image by the packaged java-service recipe; there is no release step of its

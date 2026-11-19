@@ -27,8 +27,9 @@ import (
 const ifName = "qits0"
 
 // up brings the node's tunnel up and holds it until SIGTERM or SIGINT: TUN qits0 at the answer's
-// MTU, wireguard-go in this process, the tunnel address and the one route (the edge's DNS address)
-// by netlink, and split DNS for the platform's zone when systemd-resolved runs.
+// MTU lowered to fit the link towards the edge (tunnel.MTU, kept there by mtuWatch), wireguard-go
+// in this process, the tunnel address and the one route (the edge's DNS address) by netlink, and
+// split DNS for the platform's zone when systemd-resolved runs.
 func up(dir string, log io.Writer) error {
 	t, err := tunnel.Load(filepath.Join(dir, "tunnel.json"))
 	if err != nil {
@@ -49,7 +50,25 @@ func up(dir string, log io.Writer) error {
 		return err
 	}
 
-	dev, err := tun.CreateTUN(ifName, t.Edge.MTU)
+	// Measured before the TUN exists, so qits0 is created at the MTU it keeps; a failure falls back
+	// to the edge's MTU, as before this was measured, and the watch below may still correct it.
+	measure := func() (string, int, error) {
+		dst, err := netip.ParseAddrPort(endpoint)
+		if err != nil {
+			return "", 0, fmt.Errorf("the endpoint %q: %w", endpoint, err)
+		}
+		_, name, mtu, err := linkTowards(dst.Addr())
+		return name, mtu, err
+	}
+	linkName, linkMTU, err := measure()
+	if err != nil {
+		fmt.Fprintf(log, "warning: %s mtu: %v; using the edge's %d\n", ifName, err, t.Edge.MTU)
+		linkName, linkMTU = "the link towards "+endpoint, 0
+	}
+	chosen := tunnel.MTU(t.Edge.MTU, linkMTU)
+	fmt.Fprintf(log, "%s mtu %d (%s)\n", ifName, chosen.MTU, chosen.Why(linkName))
+
+	dev, err := tun.CreateTUN(ifName, chosen.MTU)
 	if err != nil {
 		return fmt.Errorf("create TUN %s: %w", ifName, err)
 	}
@@ -73,6 +92,18 @@ func up(dir string, log io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(log, "%s up: %s/32 via %s, route %s/32\n", ifName, tunnelIP, endpoint, dns)
+	watch := &mtuWatch{
+		edge:    t.Edge.MTU,
+		current: chosen.MTU,
+		measure: measure,
+		apply:   func(mtu int) error { return setMTU(link.Index, mtu) },
+		log:     log,
+	}
+	if stop, err := watch.watch(); err != nil {
+		fmt.Fprintf(log, "warning: %s mtu: cannot watch the link, keeping %d: %v\n", ifName, chosen.MTU, err)
+	} else {
+		defer stop()
+	}
 	splitDNS(t, log)
 
 	signals := make(chan os.Signal, 1)
