@@ -53,6 +53,8 @@
         <!-- The consumer pacts ConsumerPactVerificationTest verifies, one jar per consumer; the pin
              moves with qits-maintenance's bump when the consumer releases a changed pact. -->
         <qits.network-access-frontend-pacts-qits-network-access-service.version>2026.1119.74254</qits.network-access-frontend-pacts-qits-network-access-service.version>
+        <qits.landing-app-pacts-qits-network-access-service.version>2026.1114.221503</qits.landing-app-pacts-qits-network-access-service.version>
+        <qits.platform-access-monorepo-pacts-qits-network-access-service.version>2026.1110.211417</qits.platform-access-monorepo-pacts-qits-network-access-service.version>
         <!-- The datasource resilience pair (PatientPgDriver/DbRetry, and the rule that checks the
              block). They move together: the rule names the driver as a string. -->
         <qits.db-core.version>2026.1107.191249</qits.db-core.version>
@@ -132,6 +134,20 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-network-access-frontend-pacts-qits-network-access-service</artifactId>
                 <version>${qits.network-access-frontend-pacts-qits-network-access-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-landing-app-pacts-qits-network-access-service</artifactId>
+                <version>${qits.landing-app-pacts-qits-network-access-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-platform-access-monorepo-pacts-qits-network-access-service</artifactId>
+                <version>${qits.platform-access-monorepo-pacts-qits-network-access-service.version}</version>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
