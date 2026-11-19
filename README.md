@@ -92,7 +92,7 @@ for a desk or a service, that client's id, which no `UserDeleted` matches (revok
 | `GET /peers/{id}/tunnel` | `{peerId, tunnelIp, edge: {publicKey, publicAddress, listenPort, dnsAddress, tunnelCidr, mtu, domain}}`, the companion's input | read |
 | `GET /nodes`, `GET /nodes/{targetId}` | joined nodes with their ACTIVE peer | read |
 | `POST /nodes/{targetId}/join` `{name, publicKey}` | 200, the node's tunnel answer (as `/peers/{id}/tunnel`); 403 another target's token; 409 no edge yet, a key another peer holds, or a full pool; 503 qits-system unreachable | write, or `qits:target-runner-registration` (checked) |
-| `GET /nodes/qits-node-tunnel` | `application/octet-stream`, the static helper a node's install line runs | read, or `qits:target-runner-registration` |
+| `GET /nodes/qits-node-tunnel` | `application/octet-stream`, the static helper a node's install line runs; `ETag` is its SHA-256, `X-Qits-Version` this service's version, a matching `If-None-Match` is 304 | read, `qits:target-runner-registration`, or `qits:target-runner` (the node's system runner keeps the helper current, qits-2385) |
 | `GET /companion` | `{image: "registry.qits.<domain>/qits/qits-network-access", version, entrypoint: "/work/companion/qits-access-companion", user: "65532:65532"}`, this service's own image and version | read |
 | `GET /private-edge` | the announced edge, or 404 | read |
 

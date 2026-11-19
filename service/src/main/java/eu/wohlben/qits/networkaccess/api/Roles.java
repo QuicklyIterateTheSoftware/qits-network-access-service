@@ -14,7 +14,7 @@ package eu.wohlben.qits.networkaccess.api;
  *   <li><b>The node join</b> ({@code POST /nodes/{targetId}/join}): the write set, which skips the
  *       registration check (an admin's repair), and {@code qits:target-runner-registration}, which
  *       is checked against qits-system. The helper binary ({@code GET /nodes/qits-node-tunnel}):
- *       the read set and {@code qits:target-runner-registration}.
+ *       the read set, {@code qits:target-runner-registration} and {@code qits:target-runner}.
  * </ul>
  *
  * <p>Each resource carries the READ set at class level, and each write method carries the WRITE
@@ -37,6 +37,12 @@ public final class Roles {
    * helper binary the install line downloads. Nothing else.
    */
   public static final String TARGET_RUNNER_REGISTRATION = "qits:target-runner-registration";
+
+  /**
+   * A joined node's system runner, by its own long-lived client (qits-2385): admitted to the
+   * helper binary only, which it keeps current on its host. Nothing else.
+   */
+  public static final String TARGET_RUNNER = "qits:target-runner";
 
   /** The write set, for code that asks whether a caller holds it. */
   public static final java.util.Set<String> WRITE =

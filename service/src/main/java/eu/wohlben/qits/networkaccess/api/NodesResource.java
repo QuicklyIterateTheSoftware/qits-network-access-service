@@ -20,9 +20,19 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.EntityTag;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Request;
 import jakarta.ws.rs.core.Response;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -38,6 +48,11 @@ import org.jboss.logging.Logger;
  * qits:target-runner-registration}) is checked against qits-system ({@link RegistrationCheck}):
  * only the token of THIS target may join it, and qits-system's target name is the node's name. The
  * write set skips the check — an operator's repair — and names the node by the body.
+ *
+ * <p><b>The helper</b> answers with its SHA-256 as the {@code ETag} and this service's version in
+ * {@value #VERSION_HEADER}, and a matching {@code If-None-Match} with 304 (qits-2385). A joined
+ * node's system runner asks with its own bearer ({@code qits:target-runner}) every few minutes,
+ * naming the digest of the binary its host runs, and installs the answer when it differs.
  */
 @Path("/nodes")
 @Produces(MediaType.APPLICATION_JSON)
@@ -59,9 +74,19 @@ public class NodesResource {
 
   @Inject SecurityIdentity identity;
 
+  /** The response header that names this service's version beside the helper's digest. */
+  public static final String VERSION_HEADER = "X-Qits-Version";
+
   /** Where the image keeps the static {@code qits-node-tunnel} built from {@code access-client/}. */
   @ConfigProperty(name = "qits.network-access.node-tunnel.path")
   String nodeTunnel;
+
+  /** The pom version, which a release stamps with the released calver. */
+  @ConfigProperty(name = "quarkus.application.version")
+  String version;
+
+  /** The helper's SHA-256, read once: the image's file never changes under a running process. */
+  private volatile String nodeTunnelDigest;
 
   @GET
   @Operation(operationId = "getNodes", summary = "The joined nodes, with their active peers")
@@ -138,21 +163,56 @@ public class NodesResource {
     Roles.DESK,
     Roles.AGENT,
     Roles.SYSTEM,
-    Roles.TARGET_RUNNER_REGISTRATION
+    Roles.TARGET_RUNNER_REGISTRATION,
+    Roles.TARGET_RUNNER
   })
   @Operation(
       operationId = "getNodeTunnel",
-      summary = "The static qits-node-tunnel helper a node's install line runs to join")
-  @APIResponse(responseCode = "200", description = "The binary")
+      summary =
+          "The static qits-node-tunnel helper a node's install line runs to join, and its system"
+              + " runner keeps current")
+  @APIResponse(
+      responseCode = "200",
+      description = "The binary; its SHA-256 is the ETag, this service's version is X-Qits-Version")
+  @APIResponse(responseCode = "304", description = "The If-None-Match digest is the served one")
   @APIResponse(responseCode = "404", description = "This image carries no helper")
-  public Response nodeTunnel() {
+  public Response nodeTunnel(@Context Request request) {
     File binary = new File(nodeTunnel);
     if (!binary.isFile()) {
       throw NetworkAccessException.notFound("this image carries no qits-node-tunnel");
     }
+    EntityTag tag = new EntityTag(digest(binary));
+    Response.ResponseBuilder unchanged = request.evaluatePreconditions(tag);
+    if (unchanged != null) {
+      return unchanged.header(VERSION_HEADER, version).build();
+    }
     return Response.ok(binary, MediaType.APPLICATION_OCTET_STREAM_TYPE)
+        .tag(tag)
+        .header(VERSION_HEADER, version)
         .header("Content-Disposition", "attachment; filename=\"qits-node-tunnel\"")
         .build();
+  }
+
+  /** The helper's SHA-256 in lower-case hex, computed on the first ask. */
+  private String digest(File binary) {
+    String known = nodeTunnelDigest;
+    if (known != null) {
+      return known;
+    }
+    try (InputStream in = Files.newInputStream(binary.toPath())) {
+      MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+      byte[] buffer = new byte[64 * 1024];
+      for (int read; (read = in.read(buffer)) > 0; ) {
+        sha256.update(buffer, 0, read);
+      }
+      known = HexFormat.of().formatHex(sha256.digest());
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
+    nodeTunnelDigest = known;
+    return known;
   }
 
   private NodeDto dto(NaNode node) {

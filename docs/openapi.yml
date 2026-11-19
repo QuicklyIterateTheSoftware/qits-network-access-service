@@ -195,13 +195,17 @@ paths:
         - qits:system
   /network-access/api/nodes/qits-node-tunnel:
     get:
-      summary: The static qits-node-tunnel helper a node's install line runs to join
+      summary: "The static qits-node-tunnel helper a node's install line runs to join,\
+        \ and its system runner keeps current"
       operationId: getNodeTunnel
       responses:
         "200":
-          description: The binary
+          description: "The binary; its SHA-256 is the ETag, this service's version\
+            \ is X-Qits-Version"
           content:
             application/octet-stream: {}
+        "304":
+          description: The If-None-Match digest is the served one
         "404":
           description: This image carries no helper
         "401":
@@ -219,6 +223,7 @@ paths:
         - qits:agent
         - qits:system
         - qits:target-runner-registration
+        - qits:target-runner
   /network-access/api/nodes/{targetId}:
     get:
       summary: "One joined node, with its active peer"

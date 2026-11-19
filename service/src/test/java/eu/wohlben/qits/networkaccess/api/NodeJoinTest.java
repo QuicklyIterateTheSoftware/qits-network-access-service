@@ -2,6 +2,7 @@ package eu.wohlben.qits.networkaccess.api;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -23,7 +24,9 @@ import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import jakarta.inject.Inject;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -244,5 +247,41 @@ class NodeJoinTest {
     assertFalse(binary.length == 0);
     given().get(NODES).then().statusCode(403);
     given().get("/network-access/api/peers").then().statusCode(403);
+  }
+
+  @Test
+  @TestSecurity(user = "a-node-runner", roles = "qits:target-runner")
+  void theRunnerFollowsTheHelperByItsDigestAndReadsNothingElse() throws Exception {
+    var answer =
+        given()
+            .get(NODES + "/qits-node-tunnel")
+            .then()
+            .statusCode(200)
+            .contentType("application/octet-stream")
+            .header(NodesResource.VERSION_HEADER, notNullValue())
+            .extract();
+    byte[] binary = answer.asByteArray();
+    String digest =
+        HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(binary));
+    assertEquals("\"" + digest + "\"", answer.header("ETag"));
+    given()
+        .header("If-None-Match", "\"" + digest + "\"")
+        .get(NODES + "/qits-node-tunnel")
+        .then()
+        .statusCode(304)
+        .header(NodesResource.VERSION_HEADER, notNullValue());
+    given()
+        .header("If-None-Match", "\"" + "1".repeat(64) + "\", \"" + digest + "\"")
+        .get(NODES + "/qits-node-tunnel")
+        .then()
+        .statusCode(304);
+    given()
+        .header("If-None-Match", "\"" + "0".repeat(64) + "\"")
+        .get(NODES + "/qits-node-tunnel")
+        .then()
+        .statusCode(200);
+    given().get(NODES).then().statusCode(403);
+    given().get("/network-access/api/peers").then().statusCode(403);
+    join(TARGET, "host-1", Fixtures.key(5)).statusCode(403);
   }
 }
