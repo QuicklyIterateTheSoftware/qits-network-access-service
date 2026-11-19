@@ -9,7 +9,7 @@
         <version>2026.1119.10220</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <!-- The deployable: the REST surface under /network-access/api. -->
+    <!-- The deployable: the REST surface under /network-access/api, and the management page at `/`. -->
     <artifactId>qits-network-access-service</artifactId>
     <name>qits-network-access :: service</name>
     <packaging>quarkus</packaging>
@@ -30,6 +30,21 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+        <dependency>
+            <!-- The management page. Quinoa builds src/main/webui (the qits-network-access-frontend
+                 submodule, an Angular SPA) during augmentation and serves it at `/` of this
+                 service's own host, beside /network-access/api and /network-access/q — see the
+                 quarkus.quinoa.* block in application.properties. That makes `./mvnw verify` (whose
+                 `package` precedes failsafe) need a node on PATH and an initialised submodule;
+                 `./mvnw test` needs neither, because Quinoa is off in test mode. Version from the
+                 root pom's dependencyManagement.
+
+                 NEVER let quarkus-undertow onto this classpath: Quinoa's production static serving
+                 goes through Quarkus' own static-resource route, which undertow's servlet stack takes
+                 over and then cannot find — the API answers and the page 404s. -->
+            <groupId>io.quarkiverse.quinoa</groupId>
+            <artifactId>quarkus-quinoa</artifactId>
         </dependency>
         <dependency>
             <!-- /network-access/q/health/ready, with a readiness check per datasource. -->
@@ -123,10 +138,19 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <!-- ConsumerPactVerificationTest: verifies the consumer pacts this provider pins (none
-                 yet: the landing app's and the CLI's arrive with their tasks). -->
+            <!-- ConsumerPactVerificationTest: verifies the consumer pacts this provider pins, the
+                 jars below. -->
             <groupId>au.com.dius.pact.provider</groupId>
             <artifactId>junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- The consumer pacts ConsumerPactVerificationTest verifies: each jar carries one
+                 `pacts/<consumer>_qits-network-access-service.json`, and the test reads them off the
+                 classpath. The pinned jar IS the source of the pact; nothing is copied into this
+                 tree. qits-network-access-frontend is the page this service serves (qits-2361). -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-network-access-frontend-pacts-qits-network-access-service</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

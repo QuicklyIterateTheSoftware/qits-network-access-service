@@ -7,8 +7,10 @@
 # application, so it does not change.
 application: qits-network-access
 
-# https://network-access.qits.<domain>/network-access: the API at /network-access/api, health and the
-# API document at /network-access/q.
+# https://network-access.qits.<domain>/: the management page (qits-network-access-frontend, served
+# by Quinoa at `/` as every microfrontend is), the API at /network-access/api, health and the API
+# document at /network-access/q. A bare `/` is the catch-all of whichever application declares it on
+# this host, so `routes:` names only the wire prefix.
 host: network-access
 routes: /network-access
 
@@ -18,8 +20,11 @@ routes: /network-access
 # person whose tunnel is broken has to be able to reach it to repair the tunnel (owner ruling, see
 # the epic's design page `design-names-and-values`). Every door still takes a bearer.
 #
-# NO `navigation-entries:` either: the management pane lives in qits-landing-app (route
-# /network-access), whose own menu links it; the landing app does not read /main-navigation.
+# THE MANAGEMENT PAGE LIVES HERE, at `/` of this public host, for the same reason the deployment is
+# public: once the landing app is private (qits-2360) a page there would need the very tunnel it
+# grants. The landing shell links to it by an external link (https://network-access.<door host>/)
+# rather than through `navigation-entries:`, because the landing app does not read /main-navigation;
+# so none are declared here.
 
 # The probe the deploy gates on: readiness, which is red while either database is unreachable.
 health_path: /network-access/q/health/ready

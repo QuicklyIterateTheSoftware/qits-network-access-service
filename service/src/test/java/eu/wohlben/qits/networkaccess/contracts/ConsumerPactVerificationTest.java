@@ -8,7 +8,6 @@ import au.com.dius.pact.core.model.ProviderState;
 import au.com.dius.pact.provider.junit5.HttpTestTarget;
 import au.com.dius.pact.provider.junit5.PactVerificationContext;
 import au.com.dius.pact.provider.junit5.PactVerificationInvocationContextProvider;
-import au.com.dius.pact.provider.junitsupport.IgnoreNoPactsToVerify;
 import au.com.dius.pact.provider.junitsupport.Provider;
 import au.com.dius.pact.provider.junitsupport.State;
 import au.com.dius.pact.provider.junitsupport.loader.PactSource;
@@ -29,10 +28,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  *
  * <p>Each consumer publishes its pact as a jar holding {@code
  * pacts/<consumer>_qits-network-access-service.json}; this repository pins the jar as a test
- * dependency and {@link ClasspathPactLoader} finds it. <b>No consumer pins one yet</b> — the
- * landing app's pane and the CLI's {@code network-access} commands arrive with their own tasks — so
- * this class carries {@link IgnoreNoPactsToVerify} and {@link ClasspathPactLoader#REQUIRED} is
- * false. When the first is pinned, drop the annotation and set {@code REQUIRED} to true.
+ * dependency and {@link ClasspathPactLoader} finds it. The first is qits-network-access-frontend's,
+ * the page this service serves (qits-2361).
  *
  * <p>Each interaction runs over real HTTP as an operator holding {@code qits:admin}. Every {@code
  * @State} method delegates to {@link ProviderStates}; {@link #target} fails an unknown state, and an
@@ -41,7 +38,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @QuarkusTest
 @Provider(ConsumerPactVerificationTest.PROVIDER)
 @PactSource(ClasspathPactLoader.class)
-@IgnoreNoPactsToVerify
 @TestSecurity(user = ProviderStates.OPERATOR, roles = "qits:admin")
 class ConsumerPactVerificationTest {
 

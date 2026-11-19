@@ -31,14 +31,10 @@ import java.util.stream.Stream;
  * <p>It asks the class loader for every {@code pacts/} directory, then lists each one: a {@code
  * jar:} URL by walking the jar's entries, a {@code file:} URL by listing the directory.
  *
- * <p><b>Finding nothing is allowed, until the first consumer pins.</b> No consumer pins a pact
- * against qits-network-access-service yet — its consumers, the landing app's pane and the qits
- * CLI's {@code network-access} commands, arrive with their own tasks — so {@link #REQUIRED} is false and {@code
- * ConsumerPactVerificationTest} carries {@code @IgnoreNoPactsToVerify}: an empty classpath is an
- * empty verification, logged, not an error. When the first consumer pact jar is pinned in {@code
- * service/pom.xml}, set {@link #REQUIRED} to true and drop the annotation, as qits-edge-service and
- * qits-observability-service did: from then on a provider whose pinned pacts vanished has lost its
- * dependency, and a green run would claim the opposite.
+ * <p><b>Finding nothing fails.</b> qits-network-access-frontend, the page this service serves,
+ * pins the first consumer pact jar in {@code service/pom.xml} (qits-2361), so {@link #REQUIRED} is
+ * true, as in qits-edge-service and qits-observability-service: a provider whose pinned pacts
+ * vanished has lost its dependency, and a green run would claim the opposite.
  *
  * <p><b>{@code QITS_DEPLOYED_PACTS_DIR}</b>, when set and non-blank, is walked recursively for
  * every file whose name ends with {@code _<provider>.json} too — the same suffix match the
@@ -56,8 +52,8 @@ public class ClasspathPactLoader implements PactLoader {
 
   static final String DEPLOYED_PACTS_DIR_ENV = "QITS_DEPLOYED_PACTS_DIR";
 
-  /** Whether an empty classpath fails the build: false until the first consumer pact is pinned. */
-  static final boolean REQUIRED = false;
+  /** Whether an empty classpath fails the build: true since the first consumer pact is pinned. */
+  static final boolean REQUIRED = true;
 
   private static final org.jboss.logging.Logger LOG =
       org.jboss.logging.Logger.getLogger(ClasspathPactLoader.class);

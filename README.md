@@ -6,12 +6,12 @@ their addresses in the tunnel network, renders their configs, and announces ever
 revocation on qits-events, which `qits-edge-private` applies to its `wg0` live.
 
 The application is `qits-network-access` (wire alias `dev-qits-network-access`), image
-`qits/qits-network-access`, served at `https://network-access.qits.<domain>/network-access`, API
-under `/network-access/api`. Epic qits-1977; the design pages are on that epic's dossier
+`qits/qits-network-access`, served at `https://network-access.qits.<domain>/`: the management page
+at `/`, the API under `/network-access/api`. Epic qits-1977; the design pages are on that epic's dossier
 (`design-names-and-values`, `qits-network-access-service`).
 
 ```
- landing pane / qits CLI ──HTTPS──▶ public edge ──▶ qits-network-access (PUBLIC)
+ the page at / / qits CLI ──HTTPS──▶ public edge ──▶ qits-network-access (PUBLIC)
                                                     │ owns na_peer / na_node / na_private_edge
                                                     │ publishes PeerRegistered, PeerRevoked
                                                     ▼
@@ -24,6 +24,25 @@ There is no `exposure:` in `.config/qits/deployments.yml`, so the deployment is 
 purpose: the place that grants access to the private edge must survive a private-edge fault. Every
 door still takes a bearer; there is no anonymous door (`/network-access/q/health` is the platform's
 own).
+
+## The page
+
+The page a person manages their devices on — register one with a key generated in the browser,
+download its config or scan it as a QR code, revoke it — is
+[qits-network-access-frontend](https://github.com/QuicklyIterateTheSoftware/qits-network-access-frontend),
+an Angular SPA nested as a submodule at `service/src/main/webui`. Quinoa builds it during
+augmentation and serves it at `/` of this host (`quarkus.quinoa.*` in `application.properties`);
+`/network-access` stays the wire prefix and is excluded from the SPA fallback, so a mistyped API path
+is a 404, never the page. The page's own calls are same-origin, to `/network-access/api/...`, with a
+bearer it obtains itself by PKCE as the `qits-spa` client; its static files are served without one,
+because the edge gates the host for browsers by session.
+
+It lives here rather than in qits-landing-app for the reason the deployment is public: the page that
+grants the tunnel must not itself need it. The landing shell links to it.
+
+`./mvnw test` needs neither node nor the submodule (Quinoa is off in test mode). `./mvnw verify`
+does: run `git submodule update --init` and `npm ci && npm run build` in `service/src/main/webui`
+first. `PackagedSurfaceIT` proves the page is served at `/` and does not swallow the API.
 
 ## The tunnel
 

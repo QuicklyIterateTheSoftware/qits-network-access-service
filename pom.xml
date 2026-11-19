@@ -44,6 +44,15 @@
         <surefire-plugin.version>3.5.4</surefire-plugin.version>
         <failsafe-plugin.version>${surefire-plugin.version}</failsafe-plugin.version>
         <jandex-plugin.version>3.4.0</jandex-plugin.version>
+        <!-- Quinoa is a Quarkiverse extension: not in quarkus-bom, and its version does NOT track the
+             platform's. 2.8.2 is built against Quarkus 3.27.3 LTS, older than the platform above,
+             which is the direction that works: an extension compiled against an older core runs on
+             a newer one. Bump it only past a platform bump. Same pin as qits-system-service and
+             every other SPA-serving service. -->
+        <quinoa.version>2.8.2</quinoa.version>
+        <!-- The consumer pacts ConsumerPactVerificationTest verifies, one jar per consumer; the pin
+             moves with qits-maintenance's bump when the consumer releases a changed pact. -->
+        <qits.network-access-frontend-pacts-qits-network-access-service.version>2026.1119.74254</qits.network-access-frontend-pacts-qits-network-access-service.version>
         <!-- The datasource resilience pair (PatientPgDriver/DbRetry, and the rule that checks the
              block). They move together: the rule names the driver as a string. -->
         <qits.db-core.version>2026.1107.191249</qits.db-core.version>
@@ -88,6 +97,13 @@
                 <scope>import</scope>
             </dependency>
             <dependency>
+                <!-- Managed here rather than versioned at the use site because Quinoa is in no BOM;
+                     the pin and its reasoning stay in one place. -->
+                <groupId>io.quarkiverse.quinoa</groupId>
+                <artifactId>quarkus-quinoa</artifactId>
+                <version>${quinoa.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>io.zonky.test.postgres</groupId>
                 <artifactId>embedded-postgres-binaries-bom</artifactId>
                 <version>${zonky.postgres-binaries.version}</version>
@@ -109,6 +125,13 @@
                 <groupId>au.com.dius.pact.consumer</groupId>
                 <artifactId>junit5</artifactId>
                 <version>${pact.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-network-access-frontend-pacts-qits-network-access-service</artifactId>
+                <version>${qits.network-access-frontend-pacts-qits-network-access-service.version}</version>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>

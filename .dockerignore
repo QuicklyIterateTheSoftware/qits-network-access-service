@@ -12,6 +12,13 @@
 **/target
 **/target-ide
 
+# The page's install and build caches. Its built bundle, service/src/main/webui/dist/, is NOT
+# excluded: the image's builder stage cannot build it (docker/Dockerfile) and serves the one the CI
+# step built.
+**/node_modules
+service/src/main/webui/.angular
+**/.quinoa
+
 # Local env / IDE cruft
 .env
 .idea

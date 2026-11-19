@@ -15,6 +15,12 @@
 # qits-deployments injects from .config/qits/deployments.yml. A fallback store would be a peer list
 # nobody meant.
 #
+# THERE IS A PAGE, and it is NOT built here: it arrives in the build context already built. Quinoa
+# serves service/src/main/webui (the qits-network-access-frontend submodule) at `/`; the java-service
+# CI recipe initialises the submodule and runs `npm ci && npm run build` in it before this image is
+# built, so a host-side build needs `git submodule update --init` and the same two commands first.
+# The why is with the mvnw line below.
+#
 # THE NODE HELPER is built here too: the `access-client` stage compiles access-client/ (a Go module,
 # not part of the Maven reactor) into a static qits-node-tunnel, and the runtime stage carries it at
 # /work/node-tunnel/qits-node-tunnel, which GET /nodes/qits-node-tunnel serves to a node's install
@@ -53,16 +59,50 @@ COPY . .
 #
 # cyclonedx.skipNotDeployed=false is LOAD-BEARING: the service module is not deployed as a jar, and
 # the plugin skips such modules by default with a green build, so the sbom stage's COPY would fail.
+#
+# --- node, and the three command overrides: why the page is NOT built here --------------------------
+# The two `package-manager-install` flags give this stage a node: the Mandrel builder image ships
+# none, and Quinoa shells out to npm regardless. They live here rather than in
+# application.properties on purpose — a local or CI `mvnw` build must use the node on PATH, so that no
+# build silently downloads a toolchain. The version is the platform pin (22.22.0); it need not match
+# the step container's node, because this stage does not build the bundle.
+#
+# The frontend depends on @qits/* packages that exist ONLY on the platform's own npm registry, which
+# answers 401 without a credential, and this stage is handed only the Maven one. So the install
+# cannot happen here: the bundle is built by the CI step before this image and arrives in the
+# context as service/src/main/webui/dist/ (.dockerignore stops short of excluding it). `--version` is
+# the null command: it proves the package manager is there and does nothing else.
+#
+# THIS DOES NOT FAIL QUIETLY. The `test -f` below stops a context with no bundle — a forgotten build,
+# or a webui submodule that was never initialised — before the multi-minute native compile.
+#
+# --- and why the bundle is copied onto itself first -------------------------------------------------
+# Quinoa does not copy build-dir into target/quinoa/build, it MOVES it, and overlayfs cannot rename a
+# directory that still lives in a LOWER image layer (EXDEV; the JDK's fallback then refuses a
+# non-empty directory with DirectoryNotEmptyException). One `cp` re-materialises it in the layer that
+# is about to move it, so it has to be in THIS `RUN`, not one of its own.
 ARG QITS_DOMAIN=wohlben.eu
 RUN --mount=type=secret,id=qits-client-id \
     --mount=type=secret,id=qits-client-secret \
-    QITS_MAVEN_AUTH_USR="$(cat /run/secrets/qits-client-id 2>/dev/null || true)" \
-    QITS_MAVEN_AUTH_PSW="$(cat /run/secrets/qits-client-secret 2>/dev/null || true)" \
-    QITS_MAVEN_REPOSITORY_URL="https://registry.qits.$QITS_DOMAIN/artifacts/maven/maven" \
-    QITS_MAVEN_CENTRAL_URL="https://mirror.qits.$QITS_DOMAIN/mirror/maven/central" \
+    export QITS_MAVEN_AUTH_USR="$(cat /run/secrets/qits-client-id 2>/dev/null || true)"; \
+    export QITS_MAVEN_AUTH_PSW="$(cat /run/secrets/qits-client-secret 2>/dev/null || true)"; \
+    export QITS_MAVEN_REPOSITORY_URL="https://registry.qits.$QITS_DOMAIN/artifacts/maven/maven"; \
+    export QITS_MAVEN_CENTRAL_URL="https://mirror.qits.$QITS_DOMAIN/mirror/maven/central"; \
+    d=service/src/main/webui/dist/qits-network-access-frontend/browser; \
+    test -f "$d/index.html" || { \
+      echo "No built page at $d." >&2; \
+      echo "The build context must carry one: run 'npm ci && npm run build'" >&2; \
+      echo "in service/src/main/webui first — this stage cannot, see the Quinoa flags above." >&2; \
+      exit 1; }; \
+    cp -a "$d" "$d.layer" && rm -rf "$d" && mv "$d.layer" "$d" && \
     ./mvnw -B -ntp -s .qits-maven-settings.xml -pl service -am package -Dnative -DskipTests \
-      -Dqits.maven.repository.url="https://registry.qits.$QITS_DOMAIN/artifacts/maven/maven" \
+      -Dqits.maven.repository.url="$QITS_MAVEN_REPOSITORY_URL" \
       -Dquarkus.native.native-image-xmx=4g \
+      -Dquarkus.quinoa.package-manager-install=true \
+      -Dquarkus.quinoa.package-manager-install.node-version=22.22.0 \
+      -Dquarkus.quinoa.package-manager-command.install=--version \
+      -Dquarkus.quinoa.package-manager-command.ci=--version \
+      -Dquarkus.quinoa.package-manager-command.build=--version \
       org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom \
       -DoutputFormat=json -DoutputName=sbom -DschemaVersion=1.6 \
       -Dcyclonedx.skipNotDeployed=false
