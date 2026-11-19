@@ -8,6 +8,7 @@ import eu.wohlben.qits.networkaccess.stories.access.DeviceAccessIT;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -21,6 +22,12 @@ import org.junit.jupiter.api.Test;
  *
  * <p>It needs the frontend built in {@code service/src/main/webui} ({@code npm ci && npm run
  * build}), as every {@code ./mvnw verify -DskipITs=false} here does.
+ *
+ * <p><b>The release gate packages with {@code -Dquarkus.quinoa=false}</b> (qits-ci's java-service
+ * recipe), and this repository keeps no {@code .config/qits/userflow-stories} allow-list, so the
+ * pom runs every IT there too. Under that flag there is no page to serve: the two page probes are
+ * skipped, never passed, and the two API probes run in every build. The image build packages with
+ * Quinoa on and refuses to start without a built page ({@code docker/Dockerfile}).
  */
 @QuarkusIntegrationTest
 @TestProfile(DeviceAccessIT.PackagedWithMockIdp.class)
@@ -33,12 +40,20 @@ public class PackagedSurfaceIT {
    */
   private static final String BASE_HREF = "<base href=\"/\">";
 
+  /** Skips a page probe when the artifact was packaged without the page; see the class comment. */
+  private static void assumeThePageIsPackaged() {
+    Assumptions.assumeFalse(
+        "false".equals(System.getProperty("quarkus.quinoa")),
+        "packaged with -Dquarkus.quinoa=false: no page to probe");
+  }
+
   /**
    * A browser navigation carries no bearer; the edge gates the host by session and the page then
    * obtains its bearer itself. So the page must be served to an anonymous request.
    */
   @Test
   public void thePageIsServedAtTheRootWithoutABearer() {
+    assumeThePageIsPackaged();
     given()
         .accept(ContentType.HTML)
         .when()
@@ -55,6 +70,7 @@ public class PackagedSurfaceIT {
    */
   @Test
   public void theSignInCallbackFallsBackToThePage() {
+    assumeThePageIsPackaged();
     given()
         .accept(ContentType.HTML)
         .when()
