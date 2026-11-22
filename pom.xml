@@ -78,7 +78,7 @@
         <qits.userflows.version>2026.1106.205</qits.userflows.version>
         <qits.service-mock.version>2026.1106.507</qits.service-mock.version>
         <qits.pact-consumer.version>2026.1106.507</qits.pact-consumer.version>
-        <qits.idp-golden-masters.version>2026.1109.13349</qits.idp-golden-masters.version>
+        <qits.idp-golden-masters.version>2026.1122.143700</qits.idp-golden-masters.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <!-- Real PostgreSQL binaries as a maven dependency, spawned by the suite: a clone tests
              green with NO DOCKER, so no Testcontainers and no dev services. -->
