@@ -51,7 +51,7 @@ first. `PackagedSurfaceIT` proves the page is served at `/` and does not swallow
 | Tunnel CIDR | `100.96.0.0/24` (`qits.network-access.tunnel.cidr`) |
 | Private edge, also the tunnel DNS server | `100.96.0.1` |
 | Peer addresses | `100.96.0.10`–`100.96.0.254` (`qits.network-access.tunnel.first-host=10`); `.2`–`.9` reserved |
-| Peer side | `AllowedIPs = 100.96.0.1/32`, `PersistentKeepalive = 25` |
+| Peer side | `AllowedIPs = 100.96.0.1/32`, no `PersistentKeepalive` (the companion and the node helper keep their own 25 s keepalive instead; see below) |
 | Split DNS | the zone `${QITS_DOMAIN}`, as `~wohlben.eu` |
 
 The endpoint, port, MTU and the edge's key are whatever the private edge **announced**
@@ -114,12 +114,16 @@ base64 decoding to 32 bytes.
 
 **The config** (`PeerConfig.render`) has no `DNS =` line, deliberately: wg-quick would send every
 query to the tunnel resolver, and a Linux client keeps the internet's names off the tunnel with split
-DNS, set with `resolvectl` in `PostUp`. `<PRIVATE_KEY>` is literal; the client replaces it.
+DNS, set with `resolvectl` in `PostUp`. `<PRIVATE_KEY>` is literal; the client replaces it. Nor does
+it carry `PersistentKeepalive`: the private edge never starts a connection to a peer, so the
+client's own packets hold its NAT mapping open.
 
 **The apps' config** (`PeerConfig.renderApp`) is the same tunnel for the WireGuard apps, which run
 no `PostUp`/`PreDown` and (Android, iOS) refuse an interface key they do not know at import: no
 hooks, no Linux hint, and a `DNS = <dnsAddress>` line instead. The apps have no split DNS, and the
-tunnel resolver forwards names outside the zone (qits-2262), so the client keeps the internet.
+tunnel resolver forwards names outside the zone (qits-2262), so the client keeps the internet. It
+carries no `PersistentKeepalive` either, for the same reason as above — a keepalive would only wake
+a phone's radio every 25 s for nothing.
 
 The tunnel resolver (`<dnsAddress>`, 100.96.0.1) answers every routed private name's tunnel address
 inside the zone; outside it, it forwards the upstream's answer unchanged (qits-2262), and SERVFAILs

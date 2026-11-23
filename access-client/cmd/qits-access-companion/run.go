@@ -36,8 +36,8 @@ type Tunnel struct {
 }
 
 // Up brings the device up at t.TunnelIP with the edge as its only peer, allowed only the edge's DNS
-// address, at mtu (chooseMTU's, never above the answer's) and with the keepalive every edge peer
-// uses (wgipc.Config). The netstack's resolver asks t.Edge.DNSAddress, through the tunnel.
+// address, at mtu (chooseMTU's, never above the answer's) and with wgipc.Keepalive, which /healthz's
+// handshake age relies on (wgipc.Config). The netstack's resolver asks t.Edge.DNSAddress, through the tunnel.
 func Up(private keys.Private, t tunnel.Tunnel, endpoint string, mtu int, logger *device.Logger) (*Tunnel, error) {
 	address, err := netip.ParseAddr(t.TunnelIP)
 	if err != nil {

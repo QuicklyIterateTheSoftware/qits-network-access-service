@@ -35,10 +35,10 @@ class PeerConfigTest {
         PublicKey = EDGEKEYEDGEKEYEDGEKEYEDGEKEYEDGEKEYEDGEKEY0=
         Endpoint = 46.224.171.33:47812
         AllowedIPs = 100.96.0.1/32
-        PersistentKeepalive = 25
         """,
         config);
     assertFalse(config.contains("DNS ="), "no DNS line: split DNS only");
+    assertFalse(config.contains("PersistentKeepalive"), "the edge never starts a connection: no keepalive");
   }
 
   @Test
@@ -58,11 +58,11 @@ class PeerConfigTest {
         PublicKey = EDGEKEYEDGEKEYEDGEKEYEDGEKEYEDGEKEYEDGEKEY0=
         Endpoint = 46.224.171.33:47812
         AllowedIPs = 100.96.0.1/32
-        PersistentKeepalive = 25
         """,
         config);
     assertFalse(config.contains("PostUp"), "the apps run no hooks");
     assertFalse(config.contains("PreDown"), "the apps run no hooks");
+    assertFalse(config.contains("PersistentKeepalive"), "the edge never starts a connection: no keepalive");
     assertTrue(config.contains(PeerConfig.PRIVATE_KEY_PLACEHOLDER));
   }
 
