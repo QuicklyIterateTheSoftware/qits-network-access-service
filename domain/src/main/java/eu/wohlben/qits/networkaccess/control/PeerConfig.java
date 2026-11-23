@@ -14,7 +14,7 @@ import eu.wohlben.qits.networkaccess.entity.NaPrivateEdge;
  *       import, so it carries neither, and a {@code DNS =} line instead.
  * </ul>
  *
- * <p>Four choices are deliberate:
+ * <p>Five choices are deliberate:
  *
  * <ul>
  *   <li><b>No {@code DNS =} line in {@link #render}.</b> wg-quick would send every query to the
@@ -27,6 +27,11 @@ import eu.wohlben.qits.networkaccess.entity.NaPrivateEdge;
  *       replaces the placeholder in the browser, and the node helper never reads this text.
  *   <li><b>{@code AllowedIPs} is the edge's address alone</b>: only the private edge is reached
  *       through the tunnel.
+ *   <li><b>No {@code PersistentKeepalive}.</b> The private edge never starts a connection to a
+ *       peer, so the client's own packets hold its NAT mapping open, and its first packet after a
+ *       quiet spell handshakes again in one round trip; a keepalive would only wake a phone's
+ *       radio every 25 s (qits-2398). The companion and the node helper keep theirs (see {@code
+ *       wgipc.Keepalive}).
  * </ul>
  */
 public final class PeerConfig {
@@ -75,8 +80,7 @@ public final class PeerConfig {
         + "\n"
         + "AllowedIPs = "
         + edge.dnsAddress
-        + "/32\n"
-        + "PersistentKeepalive = 25\n";
+        + "/32\n";
   }
 
   /** The WireGuard apps' config: a {@code DNS =} line, no PostUp or PreDown, no Linux hint. */
@@ -113,7 +117,6 @@ public final class PeerConfig {
         + "\n"
         + "AllowedIPs = "
         + edge.dnsAddress
-        + "/32\n"
-        + "PersistentKeepalive = 25\n";
+        + "/32\n";
   }
 }

@@ -1,7 +1,7 @@
 // Package wgipc renders the WireGuard UAPI text (wireguard-go's Device.IpcSet) for a tunnel: this
-// device's private key and the private edge as its one peer, allowed only the edge's DNS address,
-// with the keepalive that holds a NAT mapping open. The edge is a /32 on purpose: a client reaches
-// the platform's private names through it and nothing else.
+// device's private key and the private edge as its one peer, allowed only the edge's DNS address.
+// The edge is a /32 on purpose: a client reaches the platform's private names through it and
+// nothing else.
 package wgipc
 
 import (
@@ -15,7 +15,11 @@ import (
 	"qits.wohlben.eu/access-client/internal/tunnel"
 )
 
-// Keepalive is the persistent keepalive interval, in seconds, every peer of the edge uses.
+// Keepalive is the persistent keepalive interval, in seconds, the companion and the node helper
+// use. Both are always-on hosts with no battery, and the companion's /healthz (and so `qits
+// network-access up` and `status`) needs a recent handshake; the configs this service renders for
+// phones and laptops carry none, since the private edge never starts a connection to a peer
+// (qits-2398).
 const Keepalive = 25
 
 // Resolver looks a host up; net.DefaultResolver's LookupNetIP in production, a fake in tests.

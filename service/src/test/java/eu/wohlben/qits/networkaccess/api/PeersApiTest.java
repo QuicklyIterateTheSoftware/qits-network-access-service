@@ -263,8 +263,7 @@ class PeersApiTest {
             + Fixtures.EDGE_PUBLIC_KEY
             + "\n"
             + "Endpoint = 46.224.171.33:47812\n"
-            + "AllowedIPs = 100.96.0.1/32\n"
-            + "PersistentKeepalive = 25\n",
+            + "AllowedIPs = 100.96.0.1/32\n",
         config);
 
     given()
@@ -313,8 +312,7 @@ class PeersApiTest {
             + Fixtures.EDGE_PUBLIC_KEY
             + "\n"
             + "Endpoint = 46.224.171.33:47812\n"
-            + "AllowedIPs = 100.96.0.1/32\n"
-            + "PersistentKeepalive = 25\n",
+            + "AllowedIPs = 100.96.0.1/32\n",
         config);
 
     given().get(PEERS + "/" + UUID.randomUUID() + "/app-config").then().statusCode(404);
