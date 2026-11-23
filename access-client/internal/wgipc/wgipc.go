@@ -16,10 +16,10 @@ import (
 )
 
 // Keepalive is the persistent keepalive interval, in seconds, the companion and the node helper
-// use. Both are always-on hosts with no battery, and the companion's /healthz (and so `qits
-// network-access up` and `status`) needs a recent handshake; the configs this service renders for
-// phones and laptops carry none, since the private edge never starts a connection to a peer
-// (qits-2398).
+// use. The companion's /healthz (and so `qits network-access up` and `status`) needs a handshake
+// within 3 minutes, which an idle tunnel only makes with a keepalive; a node is an always-on host
+// with no battery. The configs the service renders for phones and laptops carry none, since the
+// private edge never starts a connection to a peer (qits-2398).
 const Keepalive = 25
 
 // Resolver looks a host up; net.DefaultResolver's LookupNetIP in production, a fake in tests.
