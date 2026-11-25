@@ -60,15 +60,15 @@
         <qits.db-core.version>2026.1107.191249</qits.db-core.version>
         <qits.arch-rules.version>2026.1113.14706</qits.arch-rules.version>
         <!-- Machine identity: the rollout gate every sibling shares. -->
-        <qits.auth-core.version>2026.1106.507</qits.auth-core.version>
+        <qits.auth-core.version>2026.1125.60148</qits.auth-core.version>
         <!-- Caller stamping on inbound and outbound HTTP. -->
-        <qits.http-core.version>2026.1106.507</qits.http-core.version>
+        <qits.http-core.version>2026.1125.110206</qits.http-core.version>
         <!-- OTLP export to qits-observability through the edge, with the `qits` client's bearer. -->
         <qits.telemetry-core.version>2026.1106.507</qits.telemetry-core.version>
         <!-- The event bus client: PeerRegistered and PeerRevoked are published through it, and the
              consumers of section 4 (PrivateEdgeAnnounced, UserDeleted, TargetDeleted) will listen
              through it. qits-eventstream-contracts, its pact kit, always rides the same version. -->
-        <qits.eventstream.version>2026.1120.94334</qits.eventstream.version>
+        <qits.eventstream.version>2026.1125.142425</qits.eventstream.version>
         <!-- The consumer pacts against qits-idp-service (test scope): the shared golden-master
              reader and what qits-idp answers in each provider state. -->
         <!-- The user-story framework and the recording service mocks (test scope): the userflow
@@ -78,7 +78,7 @@
         <qits.userflows.version>2026.1106.205</qits.userflows.version>
         <qits.service-mock.version>2026.1106.507</qits.service-mock.version>
         <qits.pact-consumer.version>2026.1106.507</qits.pact-consumer.version>
-        <qits.idp-golden-masters.version>2026.1123.194348</qits.idp-golden-masters.version>
+        <qits.idp-golden-masters.version>2026.1125.71255</qits.idp-golden-masters.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <!-- Real PostgreSQL binaries as a maven dependency, spawned by the suite: a clone tests
              green with NO DOCKER, so no Testcontainers and no dev services. -->
